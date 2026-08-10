@@ -1,0 +1,122 @@
+/**
+ * Inputs — Input, Textarea, SearchInput.
+ * Every visual value references a design token.
+ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field__label {
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line-height);
+  font-weight: var(--text-label-weight);
+  letter-spacing: var(--text-label-letter-spacing);
+  color: var(--color-text-secondary);
+}
+
+.field__hint {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  font-weight: var(--text-caption-weight);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+.field__error {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  font-weight: var(--text-caption-weight);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-error);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  min-width: 0;
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--text-body-m-size);
+  line-height: var(--text-body-m-line-height);
+  font-weight: var(--text-body-m-weight);
+  transition:
+    border-color var(--transition-fast) var(--ease-standard),
+    box-shadow var(--transition-fast) var(--ease-standard);
+}
+
+.input {
+  height: var(--space-9);
+  padding-inline: var(--space-4);
+}
+
+.textarea {
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--space-14);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:hover,
+.textarea:hover {
+  border-color: var(--color-border-strong);
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 var(--space-1) var(--focus-ring-color);
+}
+
+.input:disabled,
+.textarea:disabled {
+  background-color: var(--color-surface-secondary);
+  cursor: not-allowed;
+}
+
+.input--error,
+.textarea--error {
+  border-color: var(--color-error);
+}
+
+.input--error:focus,
+.textarea--error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 var(--space-1)
+    color-mix(in srgb, var(--color-error) 45%, transparent);
+}
+
+/* Search Input */
+.search-input {
+  position: relative;
+}
+
+.search-input__icon {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.search-input .input {
+  padding-inline-start: var(--space-9);
+  padding-inline-end: var(--space-9);
+}
+
+.search-input__clear {
+  position: absolute;
+  inset-inline-end: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+}

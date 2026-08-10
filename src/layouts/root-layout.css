@@ -1,0 +1,23 @@
+/**
+ * Root layout — global landmarks shared by every screen.
+ * Hosts the skip link; future global providers mount here.
+ */
+
+.skip-link {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-3);
+  z-index: var(--z-toast);
+  padding: var(--space-3) var(--space-5);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--elevation-3);
+  transform: translateY(calc(-100% - var(--space-4)));
+  transition: transform var(--transition-fast) var(--ease-standard);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}

@@ -1,0 +1,12 @@
+/**
+ * ScissorsDoc Styles Entry
+ *
+ * Import order matters — tokens first (default light values), then theme
+ * overrides, then reset and global element styles.
+ */
+
+@import './tokens.css';
+@import './themes.css';
+@import './reset.css';
+@import './globals.css';
+@import './motion.css';

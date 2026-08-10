@@ -1,0 +1,81 @@
+/**
+ * ScissorsDoc Motion Utilities
+ *
+ * Reusable animation primitives shared across components and screens.
+ * Every duration and easing references a design token from tokens.css.
+ * The global prefers-reduced-motion rule in globals.css disables all
+ * animation/transition duration, so these utilities are safe by default.
+ */
+
+/* ------------------------------------------------------------------ *
+ * Keyframes
+ * ------------------------------------------------------------------ */
+
+@keyframes motion-fade-in {
+  from {
+    opacity: var(--opacity-0);
+  }
+}
+
+@keyframes motion-rise-in {
+  from {
+    opacity: var(--opacity-0);
+    transform: translateY(var(--space-3));
+  }
+}
+
+@keyframes motion-scale-in {
+  from {
+    opacity: var(--opacity-0);
+    transform: scale(0.96);
+  }
+}
+
+@keyframes motion-pop-in {
+  from {
+    opacity: var(--opacity-0);
+    transform: scale(0.92);
+  }
+}
+
+@keyframes motion-dropdown-in {
+  from {
+    opacity: var(--opacity-0);
+    transform: translateY(var(--space-1));
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Utility classes — apply one animation with token durations/easing
+ * ------------------------------------------------------------------ */
+
+.motion-fade-in {
+  animation: motion-fade-in var(--transition-normal) var(--ease-out);
+}
+
+.motion-rise {
+  animation: motion-rise-in var(--transition-normal) var(--ease-out);
+}
+
+.motion-scale-in {
+  animation: motion-scale-in var(--transition-normal) var(--ease-out);
+}
+
+.motion-pop-in {
+  animation: motion-pop-in var(--duration-modal) var(--ease-out);
+}
+
+/* Page enter — subtle rise+fade applied to routed screen roots */
+.page-enter {
+  animation: motion-rise-in var(--duration-page) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-fade-in,
+  .motion-rise,
+  .motion-scale-in,
+  .motion-pop-in,
+  .page-enter {
+    animation: none;
+  }
+}

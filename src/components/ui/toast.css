@@ -1,0 +1,82 @@
+/**
+ * Toast — provider, viewport, and toast card.
+ * Every visual value references a design token.
+ */
+
+.toast-viewport {
+  position: fixed;
+  inset-inline-end: var(--space-5);
+  bottom: var(--space-5);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(calc(100vw - var(--space-8)), var(--container-sm));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: toast-in var(--duration-toast) var(--ease-out);
+}
+
+.toast__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.toast--success .toast__icon {
+  color: var(--color-success);
+}
+
+.toast--error .toast__icon {
+  color: var(--color-error);
+}
+
+.toast--warning .toast__icon {
+  color: var(--color-warning);
+}
+
+.toast--info .toast__icon {
+  color: var(--color-info);
+}
+
+.toast__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast__title {
+  font-size: var(--text-body-m-size);
+  line-height: var(--text-body-m-line-height);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.toast__description {
+  margin-block-start: var(--space-1);
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  font-weight: var(--text-body-s-weight);
+  color: var(--color-text-secondary);
+}
+
+.toast__close {
+  flex-shrink: 0;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: var(--opacity-0);
+    transform: translateY(var(--space-3));
+  }
+}

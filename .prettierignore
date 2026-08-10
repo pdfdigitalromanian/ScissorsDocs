@@ -1,0 +1,18 @@
+dist
+node_modules
+public
+package-lock.json
+
+# Project documentation (pasted content, do not reformat)
+.agent
+agent.md
+masterprompt.md
+prd.md
+ARCHITECTURE.md
+audit.md
+DESIGN_SYSTEM.md
+DESIGN_TOKENS.md
+IMPLEMENTATION_ROADMAP.md
+prompt.txt
+scaffoldprompt.txt
+structure.txt

@@ -1,0 +1,119 @@
+/**
+ * Floating UI — FloatingPanel, PopoverContainer, ContextMenu.
+ * Every visual value references a design token.
+ */
+
+/* ------------------------------------------------------------------ *
+ * Floating Panel — positioned surface, anchored via placement classes.
+ * Place inside a `position: relative` wrapper next to its trigger.
+ * ------------------------------------------------------------------ */
+
+.floating-panel {
+  position: absolute;
+  z-index: var(--z-popover);
+  min-width: var(--space-15);
+  padding: var(--space-2);
+  background-color: var(--color-surface);
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-3);
+  opacity: var(--opacity-0);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--transition-fast) var(--ease-standard),
+    visibility var(--transition-fast) var(--ease-standard);
+}
+
+.floating-panel--open {
+  opacity: var(--opacity-100);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.floating-panel--top-start {
+  bottom: calc(100% + var(--space-2));
+  left: var(--space-0);
+}
+
+.floating-panel--top-end {
+  bottom: calc(100% + var(--space-2));
+  right: var(--space-0);
+}
+
+.floating-panel--bottom-start {
+  top: calc(100% + var(--space-2));
+  left: var(--space-0);
+}
+
+.floating-panel--bottom-end {
+  top: calc(100% + var(--space-2));
+  right: var(--space-0);
+}
+
+/* ------------------------------------------------------------------ *
+ * Popover Container — portal positioned via inline coordinates.
+ * Kept invisible until the first measured position is applied.
+ * ------------------------------------------------------------------ */
+
+.popover-container {
+  position: fixed;
+  z-index: var(--z-popover);
+  visibility: hidden;
+}
+
+.popover-container--ready {
+  visibility: visible;
+}
+
+/* ------------------------------------------------------------------ *
+ * Context Menu
+ * ------------------------------------------------------------------ */
+
+.context-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  min-width: var(--space-16);
+  padding: var(--space-2);
+  background-color: var(--color-surface);
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-4);
+  visibility: hidden;
+}
+
+.context-menu--ready {
+  visibility: visible;
+}
+
+.context-menu__trigger {
+  display: contents;
+}
+
+.context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: var(--text-body-m-size);
+  line-height: var(--text-body-m-line-height);
+  text-align: start;
+  cursor: pointer;
+}
+
+.context-menu__item:hover {
+  background-color: var(--color-surface-secondary);
+}
+
+.context-menu__item--destructive {
+  color: var(--color-error);
+}
+
+.context-menu__item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}

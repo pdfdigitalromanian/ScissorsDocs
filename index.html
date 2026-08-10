@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/ScissorsDoc.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta
+      name="description"
+      content="ScissorsDoc — a document workspace platform for creating, editing and managing documents."
+    />
+    <title>ScissorsDoc</title>
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('scissordoc-theme')
+          var preference =
+            stored === 'light' || stored === 'dark' ? stored : 'system'
+          var resolved = preference
+          if (preference === 'system') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+          }
+          var root = document.documentElement
+          root.dataset.theme = resolved
+          root.dataset.themePreference = preference
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) {
+            meta.setAttribute(
+              'content',
+              resolved === 'dark' ? '#0b1120' : '#ffffff',
+            )
+          }
+        } catch (error) {
+          /* no-op — theme applies on first render */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

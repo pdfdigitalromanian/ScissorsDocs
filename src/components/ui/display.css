@@ -1,0 +1,203 @@
+/**
+ * Display — Avatar, Divider, Card.
+ * Every visual value references a design token.
+ */
+
+/* Avatar */
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-circle);
+  overflow: hidden;
+  background-color: var(--color-secondary-200);
+  color: var(--color-secondary-800);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  user-select: none;
+}
+
+.avatar--sm {
+  width: var(--space-7);
+  height: var(--space-7);
+  font-size: var(--text-caption-size);
+}
+
+.avatar--md {
+  width: var(--space-9);
+  height: var(--space-9);
+  font-size: var(--text-body-m-size);
+}
+
+.avatar--lg {
+  width: var(--space-12);
+  height: var(--space-12);
+  font-size: var(--text-body-l-size);
+}
+
+.avatar--xl {
+  width: var(--space-15);
+  height: var(--space-15);
+  font-size: var(--text-heading-3-size);
+}
+
+.avatar__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar__status {
+  position: absolute;
+  bottom: 0;
+  inset-inline-end: 0;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-circle);
+  border: var(--space-1) solid var(--color-surface);
+}
+
+.avatar--online .avatar__status {
+  background-color: var(--color-success);
+}
+
+.avatar--busy .avatar__status {
+  background-color: var(--color-error);
+}
+
+.avatar--away .avatar__status {
+  background-color: var(--color-warning);
+}
+
+.avatar--offline .avatar__status {
+  background-color: var(--color-border-strong);
+}
+
+.avatar--tone-1 {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-700);
+}
+
+.avatar--tone-2 {
+  background-color: var(--color-success-100);
+  color: var(--color-success-700);
+}
+
+.avatar--tone-3 {
+  background-color: var(--color-warning-100);
+  color: var(--color-warning-700);
+}
+
+.avatar--tone-4 {
+  background-color: var(--color-error-100);
+  color: var(--color-error-700);
+}
+
+.avatar--tone-5 {
+  background-color: var(--color-info-100);
+  color: var(--color-info-700);
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-block: var(--space-5);
+  color: var(--color-text-muted);
+}
+
+.divider__line {
+  flex: 1;
+  border-block-start: var(--border-divider);
+}
+
+.divider__label {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  font-weight: var(--text-caption-weight);
+  letter-spacing: var(--text-caption-letter-spacing);
+  white-space: nowrap;
+}
+
+.divider--vertical {
+  flex-direction: column;
+  align-self: stretch;
+  width: var(--space-1);
+  margin-block: 0;
+}
+
+.divider--vertical .divider__line {
+  flex: 1;
+  border-block-start: 0;
+  border-inline-start: var(--border-divider);
+}
+
+/* Card */
+.card {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-thin);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+.card--flush {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.card--interactive {
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast) var(--ease-standard),
+    box-shadow var(--transition-fast) var(--ease-standard),
+    transform var(--transition-fast) var(--ease-standard);
+}
+
+.card--interactive:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.card--interactive:active {
+  transform: translateY(var(--space-1));
+}
+
+.card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-5) 0;
+}
+
+.card__content {
+  padding: var(--space-5);
+}
+
+.card__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-5) var(--space-5);
+  margin-block-start: auto;
+}
+
+.card__title {
+  font-size: var(--text-heading-5-size);
+  line-height: var(--text-heading-5-line-height);
+  font-weight: var(--text-heading-5-weight);
+  letter-spacing: var(--text-heading-5-letter-spacing);
+  color: var(--color-heading);
+}
+
+.card__description {
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  font-weight: var(--text-body-s-weight);
+  color: var(--color-text-secondary);
+}

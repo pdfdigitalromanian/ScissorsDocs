@@ -1,0 +1,413 @@
+/**
+ * PDF engine — PdfViewer toolbar, lazy page scroller, thumbnails, document
+ * info and the local preview surfaces.
+ * Every visual value references a design token. Breakpoints are written
+ * literally in media queries (see DESIGN_TOKENS.md §9).
+ */
+
+/* ------------------------------------------------------------------ *
+ * PdfViewer — toolbar over a lazy page scroller
+ * ------------------------------------------------------------------ */
+
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--space-18);
+  height: calc(100dvh - var(--space-18));
+  overflow: hidden;
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+}
+
+.pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: var(--space-11);
+  padding-inline: var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+  background-color: var(--color-surface);
+  border-bottom: var(--border-divider);
+}
+
+.pdf-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.pdf-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.pdf-toolbar__group + .pdf-toolbar__group {
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--border-divider);
+}
+
+.pdf-toolbar__group--end {
+  margin-inline-start: auto;
+}
+
+.pdf-toolbar__pages {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.pdf-toolbar__page-input {
+  width: var(--space-9);
+  padding: var(--space-1);
+  text-align: center;
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  color: var(--color-text);
+  background-color: var(--color-surface-secondary);
+  border: var(--border-thin);
+  border-radius: var(--radius-sm);
+}
+
+.pdf-toolbar__page-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.pdf-toolbar__page-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-toolbar__zoom {
+  min-width: var(--space-9);
+  text-align: center;
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.pdf-scroller {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background-color: var(--color-surface-secondary);
+}
+
+.pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  margin: auto;
+  width: fit-content;
+  padding: var(--space-4);
+}
+
+.pdf-pages--single {
+  justify-content: center;
+  min-height: 100%;
+}
+
+.pdf-page-slot {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.pdf-page-slot__placeholder {
+  width: var(--space-16);
+  height: var(--space-18);
+}
+
+.pdf-page {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.pdf-page__canvas {
+  display: block;
+  background-color: var(--color-background);
+  box-shadow: var(--elevation-1);
+}
+
+/* ------------------------------------------------------------------ *
+ * PdfViewer status states — loading, error
+ * ------------------------------------------------------------------ */
+
+.pdf-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: var(--space-18);
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.pdf-status__title {
+  margin: 0;
+  font-size: var(--text-heading-5-size);
+  line-height: var(--text-heading-5-line-height);
+  font-weight: var(--text-heading-5-weight);
+  letter-spacing: var(--text-heading-5-letter-spacing);
+  color: var(--color-heading);
+}
+
+.pdf-status__hint {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------------ *
+ * PdfThumbnails — lazy page strip in the Pages panel
+ * ------------------------------------------------------------------ */
+
+.pdf-thumbnails {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pdf-thumbnail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast) var(--ease-standard),
+    background-color var(--transition-fast) var(--ease-standard);
+}
+
+.pdf-thumbnail:hover {
+  border-color: var(--color-border-strong);
+}
+
+.pdf-thumbnail:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.pdf-thumbnail--active {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-100);
+}
+
+.pdf-thumbnail__frame {
+  display: flex;
+  justify-content: center;
+  min-width: var(--space-15);
+}
+
+.pdf-thumbnail__canvas {
+  display: block;
+  background-color: var(--color-background);
+  box-shadow: var(--elevation-1);
+}
+
+.pdf-thumbnail__number {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  letter-spacing: var(--text-caption-letter-spacing);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------------ *
+ * PdfInfoModal — metadata definition list
+ * ------------------------------------------------------------------ */
+
+.pdf-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.pdf-info__row {
+  display: grid;
+  grid-template-columns: minmax(0, 7rem) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.pdf-info__label {
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  color: var(--color-text-muted);
+}
+
+.pdf-info__value {
+  margin: 0;
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.pdf-info__empty {
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------------ *
+ * Local previews — image, text, office, unknown
+ * ------------------------------------------------------------------ */
+
+.local-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--space-18);
+  overflow: hidden;
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-secondary);
+}
+
+.local-preview__body {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-17);
+  padding: var(--space-6);
+  overflow: auto;
+}
+
+.local-preview__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-surface);
+  border-top: var(--border-divider);
+}
+
+.local-preview__meta {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+.local-preview__image-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.local-preview__image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-1);
+}
+
+.local-preview__text-wrap {
+  width: 100%;
+}
+
+.local-preview__text {
+  margin: 0;
+  padding: var(--space-4);
+  font-family: var(--font-family-mono);
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: var(--border-divider);
+  border-radius: var(--radius-md);
+}
+
+.local-preview__note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+.local-preview__message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: var(--container-sm);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.local-preview__message-title {
+  margin: 0;
+  font-size: var(--text-heading-5-size);
+  line-height: var(--text-heading-5-line-height);
+  font-weight: var(--text-heading-5-weight);
+  letter-spacing: var(--text-heading-5-letter-spacing);
+  color: var(--color-heading);
+}
+
+.local-preview__message-hint {
+  margin: 0;
+  font-size: var(--text-body-s-size);
+  line-height: var(--text-body-s-line-height);
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------------ *
+ * Responsive — tablet (<= 1023px): compact toolbar
+ * ------------------------------------------------------------------ */
+
+@media (max-width: 1023px) {
+  .pdf-viewer {
+    height: calc(100dvh - var(--space-18));
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Responsive — mobile (<= 767px): stack and slim the chrome
+ * ------------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+  .pdf-toolbar {
+    min-height: var(--space-10);
+  }
+
+  .pdf-pages {
+    padding: var(--space-3);
+  }
+
+  .local-preview__body {
+    padding: var(--space-4);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion — respect reduced-motion preference
+ * ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-thumbnail {
+    transition: none;
+  }
+}

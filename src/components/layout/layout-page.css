@@ -1,0 +1,95 @@
+/**
+ * Page-level layout — PageLayout, PageContainer, Section, ContentWrapper.
+ * Every visual value references a design token. Only breakpoint
+ * literals appear in media queries (see DESIGN_TOKENS.md §9).
+ */
+
+/* ------------------------------------------------------------------ *
+ * Page Layout — fills the main region and scrolls as a whole
+ * ------------------------------------------------------------------ */
+
+.page-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ------------------------------------------------------------------ *
+ * Page Container — centered, width-constrained page body
+ * ------------------------------------------------------------------ */
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--container-page);
+  margin-inline: auto;
+  padding-block: var(--space-6) var(--space-9);
+  padding-inline: var(--grid-margin);
+}
+
+.page-container--sm {
+  max-width: var(--container-sm);
+}
+
+.page-container--md {
+  max-width: var(--container-md);
+}
+
+.page-container--lg {
+  max-width: var(--container-lg);
+}
+
+.page-container--xl {
+  max-width: var(--container-xl);
+}
+
+.page-container--2xl {
+  max-width: var(--container-2xl);
+}
+
+.page-container--flush {
+  padding-block: var(--space-0);
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding-inline: var(--grid-margin-md);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Section — semantic content region with optional heading
+ * ------------------------------------------------------------------ */
+
+.layout-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.layout-section__title {
+  font-size: var(--text-heading-5-size);
+  line-height: var(--text-heading-5-line-height);
+  font-weight: var(--text-heading-5-weight);
+  letter-spacing: var(--text-heading-5-letter-spacing);
+  color: var(--color-heading);
+}
+
+/* ------------------------------------------------------------------ *
+ * Content Wrapper — scrollable body region inside a page
+ * ------------------------------------------------------------------ */
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}

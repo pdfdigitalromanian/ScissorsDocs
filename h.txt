@@ -1,0 +1,1 @@
+make this guys class="empty-state__icon" have similar color as  btn btn--primary btn--lg

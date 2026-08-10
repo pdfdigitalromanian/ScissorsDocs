@@ -1,0 +1,58 @@
+/**
+ * ScissorsDoc Themes
+ *
+ * Dark theme overrides of the semantic tokens defined in tokens.css.
+ *
+ * Resolution order:
+ * 1. Default (light) — defined on :root in tokens.css.
+ * 2. Explicit [data-theme="dark"] — the ThemeProvider always resolves
+ *    the preference (light/dark/system) to a concrete value and writes
+ *    it to <html data-theme>. "system" is resolved against the OS via
+ *    prefers-color-scheme in JS + the inline FOUC script in index.html.
+ */
+
+[data-theme='dark'] {
+  /* Backgrounds / Surfaces */
+  --color-background: #0b1120;
+  --color-surface: #111827;
+  --color-surface-secondary: #1f2937;
+  --color-card: #111827;
+  --color-border: #374151;
+  --color-border-light: #1f2937;
+  --color-border-strong: #4b5563;
+
+  /* Text */
+  --color-text: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-muted: #9ca3af;
+  --color-heading: #f9fafb;
+  --color-link: #60a5fa;
+
+  /* Status */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --color-primary-active: #93c5fd;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+
+  /* Overlay */
+  --overlay-surface: rgba(17, 24, 39, 0.8);
+
+  /* Scrollbar */
+  --scrollbar-thumb: #4b5563;
+  --scrollbar-thumb-hover: #6b7280;
+  --scrollbar-track: #1f2937;
+
+  /* Selection / Skeleton */
+  --selection-color: #f9fafb;
+  --skeleton-base: #1f2937;
+  --skeleton-highlight: #374151;
+
+  color-scheme: dark;
+}
+
+:root {
+  color-scheme: light;
+}

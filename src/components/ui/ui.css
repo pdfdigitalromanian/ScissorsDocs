@@ -1,0 +1,170 @@
+/**
+ * Shared UI primitives — Button, IconButton, EmptyState.
+ * Every visual value references a design token.
+ */
+
+/* ------------------------------------------------------------------ *
+ * Button
+ * ------------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
+  line-height: var(--text-button-line-height);
+  letter-spacing: var(--text-button-letter-spacing);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast) var(--ease-standard),
+    color var(--transition-fast) var(--ease-standard),
+    border-color var(--transition-fast) var(--ease-standard),
+    transform var(--duration-press) var(--ease-standard);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.btn--sm {
+  height: var(--space-8);
+  padding-inline: var(--space-4);
+}
+
+.btn--md {
+  height: var(--space-9);
+  padding-inline: var(--space-5);
+}
+
+.btn--lg {
+  height: var(--space-10);
+  padding-inline: var(--space-6);
+}
+
+.btn--primary {
+  background-color: var(--color-primary);
+  color: var(--color-surface-raw);
+}
+
+.btn--primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn--primary:active {
+  background-color: var(--color-primary-active);
+}
+
+.btn--secondary {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text);
+}
+
+.btn--secondary:hover {
+  background-color: var(--color-border-light);
+}
+
+.btn--outline {
+  background-color: transparent;
+  color: var(--color-text);
+  border: var(--border-thin);
+}
+
+.btn--outline:hover {
+  background-color: var(--color-surface-secondary);
+}
+
+.btn--ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn--ghost:hover {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text);
+}
+
+/* ------------------------------------------------------------------ *
+ * Icon Button
+ * ------------------------------------------------------------------ */
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-9);
+  height: var(--space-9);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  transition:
+    background-color var(--transition-fast) var(--ease-standard),
+    color var(--transition-fast) var(--ease-standard),
+    transform var(--duration-press) var(--ease-standard);
+}
+
+.icon-button:active {
+  transform: scale(0.96);
+}
+
+.icon-button:hover {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text);
+}
+
+.icon-button:active {
+  background-color: var(--color-border-light);
+}
+
+/* ------------------------------------------------------------------ *
+ * Empty State
+ * ------------------------------------------------------------------ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  max-width: var(--container-sm);
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-13);
+  height: var(--space-13);
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-circle);
+  background-color: var(--color-primary);
+  color: var(--color-surface-raw);
+}
+
+.empty-state__title {
+  font-size: var(--text-heading-3-size);
+  line-height: var(--text-heading-3-line-height);
+  font-weight: var(--text-heading-3-weight);
+  letter-spacing: var(--text-heading-3-letter-spacing);
+  color: var(--color-heading);
+}
+
+.empty-state__description {
+  font-size: var(--text-body-l-size);
+  line-height: var(--text-body-l-line-height);
+  font-weight: var(--text-body-l-weight);
+  color: var(--color-text-secondary);
+}
+
+.empty-state__action {
+  margin-top: var(--space-3);
+}

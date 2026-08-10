@@ -1,0 +1,46 @@
+/**
+ * App layout — the application shell grid.
+ * Header row + sidebar column + main content column.
+ *
+ * Breakpoint values mirror the tokens in DESIGN_TOKENS.md §9
+ * (--breakpoint-tablet) because CSS variables cannot be used inside
+ * media queries.
+ */
+
+.app-shell {
+  display: grid;
+  grid-template-areas:
+    'header header'
+    'sidebar main';
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: var(--space-12) minmax(0, 1fr);
+  height: 100dvh;
+  background-color: var(--color-background);
+}
+
+.header {
+  grid-area: header;
+}
+
+.sidebar {
+  grid-area: sidebar;
+}
+
+.app-shell__main {
+  display: flex;
+  flex-direction: column;
+  grid-area: main;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scroll-margin-block-start: var(--space-3);
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    grid-template-areas:
+      'header'
+      'main';
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
