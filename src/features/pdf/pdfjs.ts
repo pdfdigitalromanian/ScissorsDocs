@@ -15,6 +15,7 @@ export function renderPdfPageToCanvas(
   canvas: HTMLCanvasElement,
   page: PDFPageProxy,
   scale: number,
+  operationsFilter?: (index: number) => boolean,
 ): RenderTask {
   const context = canvas.getContext('2d')
   if (!context) {
@@ -26,5 +27,5 @@ export function renderPdfPageToCanvas(
   canvas.height = Math.floor(viewport.height)
   canvas.style.width = `${viewport.width / pixelRatio}px`
   canvas.style.height = `${viewport.height / pixelRatio}px`
-  return page.render({ canvas, viewport })
+  return page.render({ canvas, viewport, operationsFilter })
 }

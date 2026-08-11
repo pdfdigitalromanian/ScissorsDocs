@@ -147,6 +147,19 @@
   box-shadow: var(--elevation-1);
 }
 
+.pdf-page__background-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pdf-page__background-canvas--ready {
+  opacity: 1;
+}
+
 /* ------------------------------------------------------------------ *
  * Live PDF text editing layer
  * ------------------------------------------------------------------ */
@@ -157,7 +170,7 @@
   --min-font-size-inv: calc(1 / var(--min-font-size));
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   overflow: clip;
   line-height: 1;
   letter-spacing: normal;
@@ -165,6 +178,11 @@
   text-align: initial;
   transform-origin: 0 0;
   pointer-events: none;
+  opacity: 0;
+}
+
+.pdf-text-edit-layer--ready {
+  opacity: 1;
 }
 
 .pdf-text-edit-layer :is(span, br) {
@@ -189,10 +207,11 @@
   display: contents;
 }
 
-.pdf-text-edit-layer__item {
+.pdf-text-edit-layer .pdf-text-edit-layer__item {
+  color: var(--pdf-text-color, #111827);
   min-width: 0.25rem;
   border-radius: 2px;
-  outline: 1px dashed color-mix(in srgb, var(--color-primary) 42%, transparent);
+  outline: 1px solid transparent;
   outline-offset: 1px;
   cursor: text;
   pointer-events: auto;
@@ -206,8 +225,8 @@
 .pdf-text-edit-layer__item:focus,
 .pdf-text-edit-layer__item--active,
 .pdf-text-edit-layer__item--changed {
-  color: #111827;
-  background-color: #ffffff;
+  color: var(--pdf-text-color, #111827);
+  background-color: transparent;
   outline-color: var(--color-primary);
   box-shadow: 0 0 0 2px
     color-mix(in srgb, var(--color-primary) 18%, transparent);

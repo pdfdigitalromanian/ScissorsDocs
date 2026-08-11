@@ -34,6 +34,20 @@ export interface PdfTextEdit {
   width: number
   height: number
   fontSize: number
+  /** Width of one rendered space in PDF points for fonts without a space glyph. */
+  spaceWidth: number
+  rotation: number
+  color: [number, number, number]
+  fontData?: Uint8Array
+  fontBold?: boolean
+  fontItalic?: boolean
+  backgroundPatch: {
+    png: Uint8Array
+    x: number
+    y: number
+    width: number
+    height: number
+  }
   text: string
 }
 

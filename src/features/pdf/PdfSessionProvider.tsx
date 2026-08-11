@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { pdfjs } from './pdfjs'
@@ -82,7 +90,7 @@ function describePdfError(error: unknown): string {
 function extractInfo(
   metadata: { info?: Record<string, unknown> } | null,
 ): PdfDocumentInfo {
-  const info = metadata?.info ?? {} as Record<string, unknown>
+  const info = metadata?.info ?? ({} as Record<string, unknown>)
   const value = (key: string): string | null => {
     const raw = info[key]
     return typeof raw === 'string' && raw.length > 0 ? raw : null
@@ -110,8 +118,14 @@ interface PdfSessionProviderProps {
  * between the main viewer and the thumbnail panel. The document is
  * destroyed when the provider unmounts or the blob changes.
  */
-export function PdfSessionProvider({ blob, documentId, children }: PdfSessionProviderProps) {
-  const [status, setStatus] = useState<PdfSessionStatus>(blob ? 'loading' : 'idle')
+export function PdfSessionProvider({
+  blob,
+  documentId,
+  children,
+}: PdfSessionProviderProps) {
+  const [status, setStatus] = useState<PdfSessionStatus>(
+    blob ? 'loading' : 'idle',
+  )
   const [error, setError] = useState<string | null>(null)
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null)
   const [numPages, setNumPages] = useState(0)
@@ -162,7 +176,12 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
       .arrayBuffer()
       .then((buffer) => {
         if (cancelled) return null
-        loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer) })
+        loadingTask = pdfjs.getDocument({
+          data: new Uint8Array(buffer),
+          // Text editing needs the compiled embedded font bytes after PDF.js
+          // has bound the font face so replacements can reuse the typeface.
+          fontExtraProperties: true,
+        })
         return loadingTask.promise
       })
       .then(async (loaded) => {
@@ -185,7 +204,9 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
       })
       .then((metadata) => {
         if (cancelled) return
-        setInfo(extractInfo(metadata as { info?: Record<string, unknown> } | null))
+        setInfo(
+          extractInfo(metadata as { info?: Record<string, unknown> } | null),
+        )
         setStatus('ready')
       })
       .catch((reason: unknown) => {
@@ -239,13 +260,21 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
   }, [])
 
   const nextPage = useCallback(() => {
-    const target = clamp(currentPageRef.current + 1, 1, numPagesRef.current || 1)
+    const target = clamp(
+      currentPageRef.current + 1,
+      1,
+      numPagesRef.current || 1,
+    )
     setCurrentPage(target)
     setScrollTarget({ page: target, nonce: Date.now() })
   }, [])
 
   const previousPage = useCallback(() => {
-    const target = clamp(currentPageRef.current - 1, 1, numPagesRef.current || 1)
+    const target = clamp(
+      currentPageRef.current - 1,
+      1,
+      numPagesRef.current || 1,
+    )
     setCurrentPage(target)
     setScrollTarget({ page: target, nonce: Date.now() })
   }, [])
@@ -348,7 +377,11 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
     ],
   )
 
-  return <PdfSessionContext.Provider value={value}>{children}</PdfSessionContext.Provider>
+  return (
+    <PdfSessionContext.Provider value={value}>
+      {children}
+    </PdfSessionContext.Provider>
+  )
 }
 
 export function usePdfSession(): PdfSessionValue {

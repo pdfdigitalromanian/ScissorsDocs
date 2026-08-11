@@ -6,6 +6,7 @@ import {
   EncryptedPDFError,
   rgb,
 } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import type {
   EditorPage,
   PageRange,
@@ -109,10 +110,10 @@ export function rotatePages(
 }
 
 /**
- * Replaces one extracted text run. PDFs do not expose source text as an
- * editable DOM tree, so the original run is covered and the replacement is
- * drawn at the same baseline. The live DOM text layer provides the instant
- * typing preview; this mutation makes the result part of the saved PDF.
+ * Replaces one extracted text run. The background patch comes from a PDF.js
+ * render with text operators disabled, so images, gradients and line art stay
+ * intact. Whenever PDF.js exposes the embedded font bytes, the same typeface
+ * is embedded for the replacement instead of substituting Helvetica.
  */
 export async function replaceTextRun(
   doc: PDFDocument,
@@ -126,37 +127,61 @@ export async function replaceTextRun(
     )
   }
 
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  const initialSize = Math.max(4, Math.min(edit.fontSize, 144))
-  let fontSize = initialSize
-  const availableWidth = Math.max(edit.width, initialSize)
-
-  while (
-    edit.text &&
-    fontSize > 4 &&
-    font.widthOfTextAtSize(edit.text, fontSize) > availableWidth
-  ) {
-    fontSize -= 0.5
-  }
-
-  const coverHeight = Math.max(edit.height, initialSize) * 1.25
-  page.drawRectangle({
-    x: edit.x - 1,
-    y: edit.y - coverHeight * 0.22,
-    width: availableWidth + 2,
-    height: coverHeight,
-    color: rgb(1, 1, 1),
-    borderWidth: 0,
+  const patch = await doc.embedPng(edit.backgroundPatch.png)
+  page.drawImage(patch, {
+    x: edit.backgroundPatch.x,
+    y: edit.backgroundPatch.y,
+    width: edit.backgroundPatch.width,
+    height: edit.backgroundPatch.height,
   })
 
-  if (edit.text) {
-    page.drawText(edit.text, {
-      x: edit.x,
-      y: edit.y,
-      size: fontSize,
+  let font
+  if (edit.fontData?.byteLength) {
+    try {
+      doc.registerFontkit(fontkit)
+      font = await doc.embedFont(edit.fontData, { subset: true })
+    } catch {
+      font = undefined
+    }
+  }
+  if (!font) {
+    const fallback = edit.fontBold
+      ? edit.fontItalic
+        ? StandardFonts.HelveticaBoldOblique
+        : StandardFonts.HelveticaBold
+      : edit.fontItalic
+        ? StandardFonts.HelveticaOblique
+        : StandardFonts.Helvetica
+    font = await doc.embedFont(fallback)
+  }
+
+  if (!edit.text) return
+
+  const size = Math.max(4, Math.min(edit.fontSize, 144))
+  const rotation = degrees(edit.rotation)
+  const radians = (edit.rotation * Math.PI) / 180
+  const direction = { x: Math.cos(radians), y: Math.sin(radians) }
+  let cursor = 0
+
+  // PDF.js-compiled subset fonts can intentionally map spaces to .notdef:
+  // original PDF content commonly positions words instead of drawing a space
+  // glyph. Draw words separately with the browser-measured gap so the exact
+  // embedded font remains usable without collapsing whitespace.
+  for (const token of edit.text.split(/(\s+)/)) {
+    if (!token) continue
+    if (/^\s+$/.test(token)) {
+      cursor += edit.spaceWidth * token.length
+      continue
+    }
+    page.drawText(token, {
+      x: edit.x + cursor * direction.x,
+      y: edit.y + cursor * direction.y,
+      size,
       font,
-      color: rgb(0.08, 0.1, 0.16),
+      color: rgb(...edit.color),
+      rotate: rotation,
     })
+    cursor += font.widthOfTextAtSize(token, size)
   }
 }
 

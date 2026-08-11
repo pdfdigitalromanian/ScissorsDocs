@@ -15,6 +15,7 @@
     "server:test": "PYTHONPATH=server PYTHONPYCACHEPREFIX=/private/tmp/scissorsdoc-pycache server/.venv/bin/python -m unittest discover -s server/tests"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.2.108",
     "react": "^19.2.8",
