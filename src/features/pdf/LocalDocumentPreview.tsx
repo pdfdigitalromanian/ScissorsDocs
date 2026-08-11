@@ -24,7 +24,7 @@ interface LocalDocumentPreviewProps {
 export function LocalDocumentPreview({ document }: LocalDocumentPreviewProps) {
   switch (document.kind) {
     case 'pdf':
-      return <PdfViewer document={document} />
+      return <PdfViewer key={document.id} document={document} />
     case 'image':
       return <ImagePreview document={document} />
     case 'text':
@@ -74,7 +74,9 @@ function ImagePreview({ document }: LocalDocumentPreviewProps) {
 
   return (
     <PreviewFrame document={document}>
-      {state === 'loading' && <Spinner size="lg" label={`Loading ${document.name}`} />}
+      {state === 'loading' && (
+        <Spinner size="lg" label={`Loading ${document.name}`} />
+      )}
       {state === 'error' && (
         <PreviewMessage
           title="This image could not be opened"
@@ -121,7 +123,9 @@ function TextPreview({ document }: LocalDocumentPreviewProps) {
 
   return (
     <PreviewFrame document={document}>
-      {state === 'loading' && <Spinner size="lg" label={`Loading ${document.name}`} />}
+      {state === 'loading' && (
+        <Spinner size="lg" label={`Loading ${document.name}`} />
+      )}
       {state === 'error' && (
         <PreviewMessage
           title="This file could not be opened"

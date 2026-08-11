@@ -8,6 +8,8 @@ const HomePage = lazy(() => import('@/pages/HomePage'))
 const LibraryPage = lazy(() => import('@/pages/LibraryPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const PlaceholderPage = lazy(() => import('@/pages/PlaceholderPage'))
+const ToolPage = lazy(() => import('@/pages/ToolPage'))
+const ToolsPage = lazy(() => import('@/pages/ToolsPage'))
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'))
 const SinduraGuidePage = lazy(() => import('@/sindura-guide/SinduraGuidePage'))
 
@@ -16,12 +18,14 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
+      { index: true, element: <HomePage /> },
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <HomePage /> },
+          { path: '/tools', element: <ToolsPage /> },
+          { path: '/tools/:toolId', element: <ToolPage /> },
           ...appRoutes
-            .filter((route) => route.path !== '/')
+            .filter((route) => route.path !== '/' && route.path !== '/tools')
             .map((route) => ({
               path: route.path,
               element:

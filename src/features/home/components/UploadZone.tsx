@@ -8,12 +8,7 @@ import type { IconName } from '@/components/icons/Icon'
 import { FILE_INPUT_ACCEPT } from '@/features/documents'
 
 export type UploadStatus =
-  | 'idle'
-  | 'drag-over'
-  | 'selected'
-  | 'invalid'
-  | 'loading'
-  | 'empty'
+  'idle' | 'drag-over' | 'selected' | 'invalid' | 'loading' | 'empty'
 
 interface UploadZoneProps {
   /**
@@ -220,9 +215,7 @@ export default function UploadZone({
       </div>
 
       {resolvedStatus === 'idle' || resolvedStatus === 'empty' ? (
-        <p className="upload-zone__hint">
-          or use the shortcuts below to get started
-        </p>
+        <p className="upload-zone__hint">Files up to 200 MB</p>
       ) : null}
 
       <input

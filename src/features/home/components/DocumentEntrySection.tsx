@@ -1,54 +1,34 @@
-import { useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/icons/Icon'
 import { useToast } from '@/components/ui'
-import { ingestFiles, SUPPORTED_FILE_TYPES } from '@/features/documents'
-import HomeSection from './HomeSection'
+import { ingestFiles } from '@/features/documents'
 import UploadZone from './UploadZone'
-import {
-  documentEntryShortcuts,
-  supportedFileTypes,
-} from '../data/home-catalog'
-import type { DocumentEntryShortcut } from '../data/home-catalog'
 
-function Shortcut({ shortcut }: { shortcut: DocumentEntryShortcut }) {
-  const { toast } = useToast()
-
-  if (shortcut.to) {
-    return (
-      <Link className="home-shortcut" to={shortcut.to}>
-        <Icon name={shortcut.icon} size="sm" aria-hidden="true" />
-        {shortcut.label}
-      </Link>
-    )
-  }
-
-  function handleClick() {
-    toast({
-      title: shortcut.label,
-      description: shortcut.hint,
-      variant: 'info',
-    })
-  }
-
-  return (
-    <button type="button" className="home-shortcut" onClick={handleClick}>
-      <Icon name={shortcut.icon} size="sm" aria-hidden="true" />
-      {shortcut.label}
-    </button>
-  )
-}
+const ENTRY_BENEFITS = [
+  {
+    label: 'Private by design',
+    description: 'Files stay on your device',
+    icon: 'security' as const,
+  },
+  {
+    label: 'Easy to use',
+    description: 'One clear path from file to work',
+    icon: 'edit' as const,
+  },
+  {
+    label: 'Ready in seconds',
+    description: 'Open straight into your workspace',
+    icon: 'recent' as const,
+  },
+]
 
 /**
- * DocumentEntrySection is the primary entry point of the platform: the
- * drag & drop upload zone, quick entry shortcuts and the supported file
- * types. Dropped files are validated, registered locally and opened in
- * the workspace.
+ * Primary local document entry point. Dropped or selected files are
+ * validated, registered locally and opened in the existing workspace.
  */
 export default function DocumentEntrySection() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const folderInputRef = useRef<HTMLInputElement | null>(null)
 
   async function handleFiles(files: File[]) {
     const results = await ingestFiles(files)
@@ -87,88 +67,33 @@ export default function DocumentEntrySection() {
     navigate(`/workspace?docs=${encodeURIComponent(ids.join(','))}`)
   }
 
-  function handleFolderSelection(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (files.length === 0) return
-
-    const supported = files.filter((file) => {
-      const extension = file.name
-        .slice(file.name.lastIndexOf('.') + 1)
-        .toLowerCase()
-      return SUPPORTED_FILE_TYPES.some((type) => type.extension === extension)
-    })
-
-    if (supported.length === 0) {
-      toast({
-        title: 'No supported documents found',
-        description:
-          'The folder does not contain any files ScissorsDoc can open.',
-        variant: 'error',
-      })
-      return
-    }
-
-    toast({
-      title: 'Opening folder',
-      description: `Importing ${supported.length} supported document${
-        supported.length === 1 ? '' : 's'
-      } locally.`,
-      variant: 'info',
-    })
-    handleFiles(supported).catch(() => undefined)
-  }
-
-  function handleBrowseFolder() {
-    folderInputRef.current?.click()
-  }
-
   return (
-    <HomeSection
-      id="document-entry"
-      title="Start working"
-      description="Drop a document to begin, or choose how you'd like to get started."
-    >
-      <UploadZone onFiles={handleFiles} />
-
-      <input
-        ref={folderInputRef}
-        type="file"
-        className="visually-hidden"
-        accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.docx,.xlsx,.pptx"
-        // @ts-expect-error webkitdirectory is not part of the DOM typings
-        webkitdirectory="true"
-        multiple
-        onChange={handleFolderSelection}
-        aria-hidden="true"
-        tabIndex={-1}
-      />
-      <div className="home-entry__shortcuts">
-        <button
-          type="button"
-          className="home-shortcut"
-          onClick={handleBrowseFolder}
-        >
-          <Icon name="folder-open" size="sm" aria-hidden="true" />
-          Browse folder
-        </button>
-        {documentEntryShortcuts.map((shortcut) => (
-          <Shortcut key={shortcut.id} shortcut={shortcut} />
-        ))}
+    <section id="document-entry" className="entry-upload">
+      <div className="entry-upload__frame">
+        <UploadZone onFiles={handleFiles} />
       </div>
 
-      <ul className="supported-files" aria-label="Supported file types">
-        {supportedFileTypes.map((type) => (
-          <li key={type.id} className="supported-file">
-            <span
-              className={`supported-file__badge supported-file__badge--${type.tone}`}
-            >
-              {type.extension}
+      <p className="entry-upload__formats">
+        PDF, Word, Excel, PowerPoint, images, and text files supported
+      </p>
+
+      <ul className="entry-benefits" aria-label="ScissorsDoc benefits">
+        {ENTRY_BENEFITS.map((benefit) => (
+          <li key={benefit.label} className="entry-benefit">
+            <span className="entry-benefit__icon" aria-hidden="true">
+              <Icon name={benefit.icon} size="sm" />
             </span>
-            <span className="supported-file__label">{type.label}</span>
+            <span className="entry-benefit__copy">
+              <strong>{benefit.label}</strong>
+              <span>{benefit.description}</span>
+            </span>
           </li>
         ))}
       </ul>
-    </HomeSection>
+
+      <p className="entry-upload__legal">
+        By opening a file, you agree to the Terms of Use and Privacy Policy.
+      </p>
+    </section>
   )
 }

@@ -9,7 +9,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server:install": "python3 -m venv server/.venv && server/.venv/bin/python -m pip install -r server/requirements.txt",
+    "server": "server/.venv/bin/python -m uvicorn scissors_server.main:app --app-dir server --host 127.0.0.1 --port 8000",
+    "server:test": "PYTHONPATH=server PYTHONPYCACHEPREFIX=/private/tmp/scissorsdoc-pycache server/.venv/bin/python -m unittest discover -s server/tests"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",

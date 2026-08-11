@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
+import type { PdfTextEdit } from '@/features/editor/model'
 import { pdfjs, renderPdfPageToCanvas } from './pdfjs'
+import { PdfTextEditLayer } from './PdfTextEditLayer'
 
 interface PdfPageViewProps {
   page: PDFPageProxy
@@ -11,6 +13,8 @@ interface PdfPageViewProps {
   onVisible?: (pageNumber: number) => void
   /** Frees the canvas when the page leaves the viewport (large documents). */
   clearWhenHidden?: boolean
+  textEditing?: boolean
+  onTextEdit?: (edit: PdfTextEdit) => void
   className?: string
 }
 
@@ -26,6 +30,8 @@ export function PdfPageView({
   root,
   onVisible,
   clearWhenHidden = false,
+  textEditing = false,
+  onTextEdit,
   className = '',
 }: PdfPageViewProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -95,6 +101,9 @@ export function PdfPageView({
       style={{ width: viewport.width, height: viewport.height }}
     >
       <canvas ref={canvasRef} className="pdf-page__canvas" aria-hidden="true" />
+      {visible && textEditing && onTextEdit ? (
+        <PdfTextEditLayer page={page} scale={scale} onCommit={onTextEdit} />
+      ) : null}
     </div>
   )
 }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { PDFPageProxy } from 'pdfjs-dist'
+import type { PdfTextEdit } from '@/features/editor/model'
+import { usePdfEditor } from '@/features/editor/PdfEditorProvider'
 import Button from '@/components/ui/Button'
 import IconButton from '@/components/ui/IconButton'
 import Spinner from '@/components/ui/Spinner'
@@ -30,6 +32,8 @@ interface PdfPageSlotProps {
   onVisible?: (pageNumber: number) => void
   registerPage: (element: HTMLElement) => void
   unregisterPage: () => void
+  textEditing: boolean
+  onTextEdit: (edit: PdfTextEdit) => void
 }
 
 function PdfPageSlot({
@@ -39,6 +43,8 @@ function PdfPageSlot({
   onVisible,
   registerPage,
   unregisterPage,
+  textEditing,
+  onTextEdit,
 }: PdfPageSlotProps) {
   const session = usePdfSession()
   const [page, setPage] = useState<PDFPageProxy | null>(null)
@@ -73,6 +79,8 @@ function PdfPageSlot({
           root={root}
           onVisible={onVisible}
           clearWhenHidden={session.numPages > 15}
+          textEditing={textEditing}
+          onTextEdit={onTextEdit}
         />
       ) : (
         <div className="pdf-page-slot__placeholder" />
@@ -85,10 +93,16 @@ function PdfToolbar({
   document,
   containerSize,
   onOpenInfo,
+  textEditing,
+  canEditText,
+  onToggleTextEditing,
 }: {
   document: LocalDocument
   containerSize: ContainerSize
   onOpenInfo: () => void
+  textEditing: boolean
+  canEditText: boolean
+  onToggleTextEditing: () => void
 }) {
   const session = usePdfSession()
   const { toast } = useToast()
@@ -120,7 +134,9 @@ function PdfToolbar({
           return
         }
         const heightScale =
-          containerSize.height > 0 ? containerSize.height / base.height : widthScale
+          containerSize.height > 0
+            ? containerSize.height / base.height
+            : widthScale
         setDisplayScale(Math.min(widthScale, heightScale))
       })
       .catch(() => undefined)
@@ -182,6 +198,22 @@ function PdfToolbar({
           disabled={session.currentPage >= session.numPages}
           onClick={session.nextPage}
         />
+      </div>
+
+      <div className="pdf-toolbar__group">
+        <IconButton
+          icon="edit"
+          label={textEditing ? 'Stop editing text' : 'Edit text'}
+          iconSize="sm"
+          aria-pressed={textEditing}
+          disabled={!canEditText}
+          onClick={onToggleTextEditing}
+        />
+        {textEditing ? (
+          <span className="pdf-toolbar__edit-status" aria-live="polite">
+            Click text to edit
+          </span>
+        ) : null}
       </div>
 
       <div className="pdf-toolbar__group">
@@ -266,14 +298,35 @@ interface PdfViewerProps {
  */
 export function PdfViewer({ document }: PdfViewerProps) {
   const session = usePdfSession()
+  const editor = usePdfEditor()
+  const { toast } = useToast()
   const scrollerRef = useRef<HTMLDivElement>(null)
-  const [scrollerElement, setScrollerElement] = useState<HTMLDivElement | null>(null)
+  const [scrollerElement, setScrollerElement] = useState<HTMLDivElement | null>(
+    null,
+  )
   const pageElementsRef = useRef<Map<number, HTMLElement>>(new Map())
   const [containerSize, setContainerSize] = useState<ContainerSize>({
     width: 0,
     height: 0,
   })
   const [infoOpen, setInfoOpen] = useState(false)
+  const [textEditing, setTextEditing] = useState(false)
+
+  const handleTextEdit = useCallback(
+    (edit: PdfTextEdit) => {
+      void editor.replaceText(edit).catch((reason: unknown) => {
+        toast({
+          title: 'Text edit could not be saved',
+          description:
+            reason instanceof Error
+              ? reason.message
+              : 'This text run could not be written into the PDF.',
+          variant: 'error',
+        })
+      })
+    },
+    [editor, toast],
+  )
 
   useEffect(() => {
     const scroller = scrollerRef.current
@@ -308,7 +361,9 @@ export function PdfViewer({ document }: PdfViewerProps) {
         return clamp(widthScale, MIN_ZOOM, MAX_ZOOM)
       }
       const heightScale =
-        containerSize.height > 0 ? containerSize.height / base.height : widthScale
+        containerSize.height > 0
+          ? containerSize.height / base.height
+          : widthScale
       return clamp(Math.min(widthScale, heightScale), MIN_ZOOM, MAX_ZOOM)
     },
     [session.fitMode, session.zoom, containerSize],
@@ -388,7 +443,10 @@ export function PdfViewer({ document }: PdfViewerProps) {
     )
   }
 
-  const pageNumbers = Array.from({ length: session.numPages }, (_, index) => index + 1)
+  const pageNumbers = Array.from(
+    { length: session.numPages },
+    (_, index) => index + 1,
+  )
 
   return (
     <div className="pdf-viewer">
@@ -396,6 +454,9 @@ export function PdfViewer({ document }: PdfViewerProps) {
         document={document}
         containerSize={containerSize}
         onOpenInfo={() => setInfoOpen(true)}
+        textEditing={textEditing}
+        canEditText={editor.status === 'ready' && !editor.busy}
+        onToggleTextEditing={() => setTextEditing((active) => !active)}
       />
 
       <ScrollArea
@@ -420,6 +481,8 @@ export function PdfViewer({ document }: PdfViewerProps) {
               unregisterPage={() =>
                 pageElementsRef.current.delete(session.currentPage)
               }
+              textEditing={textEditing}
+              onTextEdit={handleTextEdit}
             />
           </div>
         ) : (
@@ -437,6 +500,8 @@ export function PdfViewer({ document }: PdfViewerProps) {
                 unregisterPage={() =>
                   pageElementsRef.current.delete(pageNumber)
                 }
+                textEditing={textEditing}
+                onTextEdit={handleTextEdit}
               />
             ))}
           </div>

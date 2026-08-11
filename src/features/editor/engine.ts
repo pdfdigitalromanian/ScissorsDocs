@@ -1,22 +1,25 @@
 import {
   PDFDocument,
   PDFPage,
+  StandardFonts,
   degrees,
   EncryptedPDFError,
+  rgb,
 } from 'pdf-lib'
-import type { EditorPage, PageRange, PdfRotation, RotationDirection, SplitMode } from './model'
+import type {
+  EditorPage,
+  PageRange,
+  PdfRotation,
+  PdfTextEdit,
+  RotationDirection,
+  SplitMode,
+} from './model'
 
 /** A4 portrait size in points, used for blank pages without a reference. */
 export const A4_SIZE = { width: 595.28, height: 841.89 }
 
 export type EditorPdfErrorCode =
-  | 'load'
-  | 'unsupported'
-  | 'insert'
-  | 'replace'
-  | 'extract'
-  | 'split'
-  | 'merge'
+  'load' | 'unsupported' | 'insert' | 'replace' | 'extract' | 'split' | 'merge'
 
 export class EditorPdfError extends Error {
   readonly code: EditorPdfErrorCode
@@ -28,7 +31,10 @@ export class EditorPdfError extends Error {
   }
 }
 
-function toEditorError(reason: unknown, code: EditorPdfError['code']): EditorPdfError {
+function toEditorError(
+  reason: unknown,
+  code: EditorPdfError['code'],
+): EditorPdfError {
   if (reason instanceof EncryptedPDFError) {
     return new EditorPdfError(
       'This PDF is password-protected and cannot be edited without its password.',
@@ -46,7 +52,10 @@ function toEditorError(reason: unknown, code: EditorPdfError['code']): EditorPdf
 }
 
 export function looksLikePdf(bytes: Uint8Array): boolean {
-  return bytes.byteLength >= 5 && String.fromCharCode(...bytes.subarray(0, 5)) === '%PDF-'
+  return (
+    bytes.byteLength >= 5 &&
+    String.fromCharCode(...bytes.subarray(0, 5)) === '%PDF-'
+  )
 }
 
 /** Loads a PDF document for editing, preserving its original metadata. */
@@ -93,7 +102,61 @@ export function rotatePages(
   const step = direction === 'clockwise' ? 90 : -90
   for (const index of indices) {
     const page = doc.getPage(index)
-    page.setRotation(degrees(normalizeRotation(page.getRotation().angle + step)))
+    page.setRotation(
+      degrees(normalizeRotation(page.getRotation().angle + step)),
+    )
+  }
+}
+
+/**
+ * Replaces one extracted text run. PDFs do not expose source text as an
+ * editable DOM tree, so the original run is covered and the replacement is
+ * drawn at the same baseline. The live DOM text layer provides the instant
+ * typing preview; this mutation makes the result part of the saved PDF.
+ */
+export async function replaceTextRun(
+  doc: PDFDocument,
+  edit: PdfTextEdit,
+): Promise<void> {
+  const page = doc.getPage(edit.pageIndex)
+  if (!page) {
+    throw new EditorPdfError(
+      'The selected PDF page no longer exists.',
+      'replace',
+    )
+  }
+
+  const font = await doc.embedFont(StandardFonts.Helvetica)
+  const initialSize = Math.max(4, Math.min(edit.fontSize, 144))
+  let fontSize = initialSize
+  const availableWidth = Math.max(edit.width, initialSize)
+
+  while (
+    edit.text &&
+    fontSize > 4 &&
+    font.widthOfTextAtSize(edit.text, fontSize) > availableWidth
+  ) {
+    fontSize -= 0.5
+  }
+
+  const coverHeight = Math.max(edit.height, initialSize) * 1.25
+  page.drawRectangle({
+    x: edit.x - 1,
+    y: edit.y - coverHeight * 0.22,
+    width: availableWidth + 2,
+    height: coverHeight,
+    color: rgb(1, 1, 1),
+    borderWidth: 0,
+  })
+
+  if (edit.text) {
+    page.drawText(edit.text, {
+      x: edit.x,
+      y: edit.y,
+      size: fontSize,
+      font,
+      color: rgb(0.08, 0.1, 0.16),
+    })
   }
 }
 
@@ -476,7 +539,9 @@ async function rasterizeToPngIfNeeded(
   if (DIRECT_IMAGE_TYPES.has(mime)) return null
   if (typeof document === 'undefined') return null
   try {
-    const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }))
+    const url = URL.createObjectURL(
+      new Blob([bytes as BlobPart], { type: mime }),
+    )
     try {
       const image = await loadImage(url)
       const canvas = document.createElement('canvas')

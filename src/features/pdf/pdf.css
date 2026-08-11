@@ -94,6 +94,13 @@
   color: var(--color-text-secondary);
 }
 
+.pdf-toolbar__edit-status {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
 .pdf-scroller {
   display: flex;
   flex: 1 1 0;
@@ -129,6 +136,7 @@
 }
 
 .pdf-page {
+  position: relative;
   display: flex;
   flex-shrink: 0;
 }
@@ -137,6 +145,77 @@
   display: block;
   background-color: var(--color-background);
   box-shadow: var(--elevation-1);
+}
+
+/* ------------------------------------------------------------------ *
+ * Live PDF text editing layer
+ * ------------------------------------------------------------------ */
+
+.pdf-text-edit-layer {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: clip;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: initial;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.pdf-text-edit-layer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  transform-origin: 0 0;
+}
+
+.pdf-text-edit-layer > :not(.markedContent),
+.pdf-text-edit-layer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
+}
+
+.pdf-text-edit-layer .markedContent {
+  display: contents;
+}
+
+.pdf-text-edit-layer__item {
+  min-width: 0.25rem;
+  border-radius: 2px;
+  outline: 1px dashed color-mix(in srgb, var(--color-primary) 42%, transparent);
+  outline-offset: 1px;
+  cursor: text;
+  pointer-events: auto;
+  caret-color: var(--color-text);
+  transition:
+    outline-color var(--transition-fast) var(--ease-standard),
+    box-shadow var(--transition-fast) var(--ease-standard);
+}
+
+.pdf-text-edit-layer__item:hover,
+.pdf-text-edit-layer__item:focus,
+.pdf-text-edit-layer__item--active,
+.pdf-text-edit-layer__item--changed {
+  color: #111827;
+  background-color: #ffffff;
+  outline-color: var(--color-primary);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.pdf-text-edit-layer__item:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
 }
 
 /* ------------------------------------------------------------------ *

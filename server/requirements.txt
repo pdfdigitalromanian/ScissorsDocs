@@ -1,0 +1,13 @@
+fastapi>=0.116,<1
+uvicorn[standard]>=0.34,<1
+python-multipart>=0.0.20,<1
+pypdf>=6.0,<7
+PyMuPDF>=1.26,<2
+Pillow>=11,<12
+reportlab>=4.4,<5
+python-docx>=1.2,<2
+beautifulsoup4>=4.13,<5
+pytesseract>=0.3.13,<1
+deep-translator>=1.11,<2
+pyHanko>=0.25,<0.28
+httpx>=0.28,<1

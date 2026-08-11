@@ -23,6 +23,20 @@ export interface EditorPage {
   height: number
 }
 
+/** One text run selected from the PDF.js text layer for in-place editing. */
+export interface PdfTextEdit {
+  /** Zero-based page index. */
+  pageIndex: number
+  /** Text baseline position in PDF points. */
+  x: number
+  y: number
+  /** Bounds of the original text run in PDF points. */
+  width: number
+  height: number
+  fontSize: number
+  text: string
+}
+
 /** Input describing a range of pages to extract or split (1-based, inclusive). */
 export interface PageRange {
   start: number

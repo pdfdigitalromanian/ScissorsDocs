@@ -21,6 +21,7 @@ import type {
   PdfOutput,
   RotationDirection,
   SplitMode,
+  PdfTextEdit,
 } from './model'
 
 const AUTOSAVE_DELAY = 700
@@ -51,6 +52,7 @@ interface PdfEditorContextValue {
   selectAllPages: () => void
   clearSelection: () => void
   rotateSelected: (direction: RotationDirection) => Promise<void>
+  replaceText: (edit: PdfTextEdit) => Promise<void>
   deleteSelected: () => Promise<void>
   duplicateSelected: () => Promise<void>
   moveSelected: (toIndex: number) => Promise<void>
@@ -107,7 +109,11 @@ export function PdfEditorProvider({
   const historyRef = useRef(new ByteHistory(HISTORY_CAPACITY))
   const anchorIdRef = useRef<string | null>(null)
   const saveStateRef = useRef<EditorSaveState>('saved')
-  const sessionRef = useRef<EditorSession>({ id: null, bytes: null, dirty: false })
+  const sessionRef = useRef<EditorSession>({
+    id: null,
+    bytes: null,
+    dirty: false,
+  })
   const saveTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -124,10 +130,7 @@ export function PdfEditorProvider({
     id: string | null
     hasBlob: boolean
   }>({ id: documentId, hasBlob: blob !== null })
-  if (
-    sessionKey.id !== documentId ||
-    sessionKey.hasBlob !== (blob !== null)
-  ) {
+  if (sessionKey.id !== documentId || sessionKey.hasBlob !== (blob !== null)) {
     setSessionKey({ id: documentId, hasBlob: blob !== null })
     setBytes(null)
     setPages([])
@@ -140,7 +143,8 @@ export function PdfEditorProvider({
   }
 
   const viewBlob = useMemo(
-    () => (bytes ? new Blob([bytes as BlobPart], { type: 'application/pdf' }) : null),
+    () =>
+      bytes ? new Blob([bytes as BlobPart], { type: 'application/pdf' }) : null,
     [bytes],
   )
 
@@ -312,7 +316,9 @@ export function PdfEditorProvider({
    * ------------------------------------------------------------------ */
 
   const applyMutation = useCallback(
-    async (mutate: (doc: PDFDocument) => void | Promise<void>): Promise<void> => {
+    async (
+      mutate: (doc: PDFDocument) => void | Promise<void>,
+    ): Promise<void> => {
       const previousBytes = bytesRef.current
       if (!previousBytes || status !== 'ready') return
       setBusy(true)
@@ -401,6 +407,13 @@ export function PdfEditorProvider({
     [applyMutation, selectedIndices],
   )
 
+  const replaceText = useCallback(
+    async (edit: PdfTextEdit) => {
+      await applyMutation((doc) => engine.replaceTextRun(doc, edit))
+    },
+    [applyMutation],
+  )
+
   const deleteSelected = useCallback(async () => {
     const indices = selectedIndices()
     if (indices.length === 0) return
@@ -465,7 +478,12 @@ export function PdfEditorProvider({
         const bytes = new Uint8Array(await file.arrayBuffer())
         const sourceCount = await engine.countPdfPages(bytes)
         await applyMutation((doc) =>
-          engine.insertPdfPages(doc, bytes, sourceCount.indices, targetIndex + offset),
+          engine.insertPdfPages(
+            doc,
+            bytes,
+            sourceCount.indices,
+            targetIndex + offset,
+          ),
         )
         for (let page = 0; page < sourceCount.count; page += 1) {
           inserted.push(`page-${targetIndex + offset + page}`)
@@ -483,7 +501,9 @@ export function PdfEditorProvider({
       if (imageFiles.length === 0) return
       const pageCount = pagesRef.current.length
       const targetIndex = Math.max(0, Math.min(atIndex ?? pageCount, pageCount))
-      await applyMutation((doc) => engine.insertImagePages(doc, imageFiles, targetIndex))
+      await applyMutation((doc) =>
+        engine.insertImagePages(doc, imageFiles, targetIndex),
+      )
       setSelectedPageIds(
         Array.from(
           { length: imageFiles.length },
@@ -548,7 +568,11 @@ export function PdfEditorProvider({
       setBusy(true)
       try {
         const total = pagesRef.current.length
-        const normalizedRanges = engine.normalizeSplitRanges(mode, ranges, total)
+        const normalizedRanges = engine.normalizeSplitRanges(
+          mode,
+          ranges,
+          total,
+        )
         if (normalizedRanges.length === 0) return []
         const parts = await engine.splitPdf(current, normalizedRanges)
         const baseName = document
@@ -623,6 +647,7 @@ export function PdfEditorProvider({
       selectAllPages,
       clearSelection,
       rotateSelected,
+      replaceText,
       deleteSelected,
       duplicateSelected,
       moveSelected,
@@ -655,6 +680,7 @@ export function PdfEditorProvider({
       selectAllPages,
       clearSelection,
       rotateSelected,
+      replaceText,
       deleteSelected,
       duplicateSelected,
       moveSelected,
