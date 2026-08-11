@@ -3,6 +3,7 @@ export type {
   DocumentKind,
   DocumentTone,
   LocalDocument,
+  LocalFolder,
 } from './types'
 export {
   FILE_INPUT_ACCEPT,
@@ -17,18 +18,39 @@ export type {
   FileValidationResult,
 } from './validation'
 export {
+  createFolder,
+  deleteDocument,
+  deleteFolder,
   downloadBlob,
   downloadDocument,
+  downloadDocumentCopy,
   clearLocalDocuments,
+  duplicateDocument,
   getFileBlob,
   getLocalDocument,
   getLocalDocuments,
+  getLocalFolders,
+  getTrashedDocuments,
   ingestFiles,
-  removeDocument,
+  moveDocument,
+  purgeDocument,
+  renameDocument,
+  renameFolder,
+  restoreDocument,
+  saveDocumentFile,
+  searchLocalDocuments,
+  setDocumentTags,
+  setFavorite,
+  sortDocuments,
   subscribeLocalDocuments,
+  togglePin,
   touchDocument,
 } from './storage/registry'
-export type { IngestedFileResult } from './storage/registry'
+export type {
+  DocumentSortField,
+  IngestedFileResult,
+  SortDirection,
+} from './storage/registry'
 export { isStorageSupported } from './storage/db'
 export type {
   KeyValueBackend,
@@ -36,5 +58,10 @@ export type {
   StoredFile,
 } from './storage/types'
 export { formatBytes, formatDateTime, formatRelativeTime } from './format'
-export { useLocalDocumentBlob, useLocalDocuments } from './hooks'
+export {
+  useLocalDocumentBlob,
+  useLocalDocuments,
+  useLocalFolders,
+  useTrashedDocuments,
+} from './hooks'
 export type { LocalFileLoadResult, LocalFileLoadState } from './hooks'

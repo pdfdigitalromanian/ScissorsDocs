@@ -1,4 +1,4 @@
-import type { LocalDocument } from '../types'
+import type { LocalDocument, LocalFolder } from '../types'
 
 /** A file blob stored under a document's local id. */
 export interface StoredFile {
@@ -7,7 +7,8 @@ export interface StoredFile {
 }
 
 /**
- * Local document backend — metadata records plus binary file blobs.
+ * Local document backend — metadata records, folder records and binary
+ * file blobs.
  *
  * This interface is the boundary between the application and local
  * persistence. The IndexedDB implementation in ./db is the current
@@ -23,6 +24,9 @@ export interface LocalDocumentBackend {
   getFile(key: string): Promise<StoredFile | undefined>
   putFile(record: StoredFile): Promise<void>
   deleteFile(key: string): Promise<void>
+  getAllFolders(): Promise<LocalFolder[]>
+  putFolder(folder: LocalFolder): Promise<void>
+  deleteFolder(id: string): Promise<void>
 }
 
 /**

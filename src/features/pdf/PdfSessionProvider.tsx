@@ -12,6 +12,12 @@ export type PdfSessionStatus = 'idle' | 'loading' | 'ready' | 'error'
 export const MIN_ZOOM = 0.25
 export const MAX_ZOOM = 4
 const ZOOM_STEP = 1.25
+const ROTATIONS = [0, 90, 180, 270]
+
+function nextRotation(current: number, step: number): number {
+  const index = ROTATIONS.indexOf(current)
+  return ROTATIONS[(index + step + ROTATIONS.length) % ROTATIONS.length]
+}
 
 export interface PdfDocumentInfo {
   title: string | null
@@ -38,12 +44,16 @@ interface PdfSessionValue {
   mode: PdfViewMode
   fitMode: PdfFitMode
   zoom: number
+  rotation: number
   setMode: (mode: PdfViewMode) => void
   setFitMode: (fitMode: PdfFitMode) => void
   setZoom: (zoom: number) => void
   zoomIn: () => void
   zoomOut: () => void
   resetZoom: () => void
+  rotateClockwise: () => void
+  rotateCounterClockwise: () => void
+  resetRotation: () => void
   goToPage: (page: number) => void
   nextPage: () => void
   previousPage: () => void
@@ -111,6 +121,7 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
   const [mode, setModeState] = useState<PdfViewMode>('continuous')
   const [fitMode, setFitModeState] = useState<PdfFitMode>('width')
   const [zoom, setZoomState] = useState(1)
+  const [rotation, setRotationState] = useState(0)
   const [resolvedBlob, setResolvedBlob] = useState<Blob | null>(blob)
 
   const numPagesRef = useRef(0)
@@ -138,6 +149,7 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
     setNumPages(0)
     setInfo(null)
     setCurrentPage(1)
+    setRotationState(0)
   }
 
   useEffect(() => {
@@ -166,6 +178,7 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
             setZoomState(clamp(snapshot.zoom, MIN_ZOOM, MAX_ZOOM))
             setFitModeState(snapshot.fitMode)
             setModeState(snapshot.mode)
+            setRotationState(snapshot.rotation ?? 0)
           }
         }
         return loaded.getMetadata()
@@ -197,6 +210,7 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
       zoom,
       fitMode,
       mode,
+      rotation,
     }
     persistSnapshotRef.current = snapshot
     const handle = window.setTimeout(() => {
@@ -205,7 +219,7 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
     return () => {
       window.clearTimeout(handle)
     }
-  }, [status, documentId, currentPage, zoom, fitMode, mode])
+  }, [status, documentId, currentPage, zoom, fitMode, mode, rotation])
 
   /* Flush the pending session when the provider unmounts. */
   useEffect(() => {
@@ -267,6 +281,18 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
     setFitModeState('width')
   }, [])
 
+  const rotateClockwise = useCallback(() => {
+    setRotationState((current) => nextRotation(current, 1))
+  }, [])
+
+  const rotateCounterClockwise = useCallback(() => {
+    setRotationState((current) => nextRotation(current, -1))
+  }, [])
+
+  const resetRotation = useCallback(() => {
+    setRotationState(0)
+  }, [])
+
   const value = useMemo<PdfSessionValue>(
     () => ({
       status,
@@ -279,12 +305,16 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
       mode,
       fitMode,
       zoom,
+      rotation,
       setMode,
       setFitMode,
       setZoom,
       zoomIn,
       zoomOut,
       resetZoom,
+      rotateClockwise,
+      rotateCounterClockwise,
+      resetRotation,
       goToPage,
       nextPage,
       previousPage,
@@ -301,12 +331,16 @@ export function PdfSessionProvider({ blob, documentId, children }: PdfSessionPro
       mode,
       fitMode,
       zoom,
+      rotation,
       setMode,
       setFitMode,
       setZoom,
       zoomIn,
       zoomOut,
       resetZoom,
+      rotateClockwise,
+      rotateCounterClockwise,
+      resetRotation,
       goToPage,
       nextPage,
       previousPage,

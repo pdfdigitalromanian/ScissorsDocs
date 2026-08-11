@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode, SVGProps } from 'react'
+import { Fragment, type ReactElement, type ReactNode, type SVGProps } from 'react'
 import './icon.css'
 
 export type IconName =
@@ -49,6 +49,11 @@ export type IconName =
   | 'lock'
   | 'merge'
   | 'optimize'
+  | 'copy'
+  | 'pin'
+  | 'pin-off'
+  | 'undo'
+  | 'redo'
   | 'organize'
   | 'plus'
   | 'reorder'
@@ -336,6 +341,37 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   optimize: <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />,
+  copy: (
+    <>
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z" />
+    </>
+  ),
+  'pin-off': (
+    <>
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z" />
+      <line x1="2" y1="2" x2="22" y2="22" />
+    </>
+  ),
+  undo: (
+    <>
+      <path d="M3 7v6h6" />
+      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M21 7v6h-6" />
+      <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" />
+    </>
+  ),
   organize: (
     <>
       <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
@@ -458,6 +494,8 @@ function elementToHtml(node: ReactNode): string {
     return String(node)
   if (Array.isArray(node)) return node.map(elementToHtml).join('')
   const element = node as ReactElement<Record<string, unknown>>
+  if (element.type === Fragment)
+    return elementToHtml(element.props.children as ReactNode)
   if (typeof element.type !== 'string') return ''
   const props = element.props
   const attrs = Object.entries(props)

@@ -1052,6 +1052,21 @@
   color: var(--color-secondary-700);
 }
 
+.document-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.document-card__action--active {
+  color: var(--color-warning-600);
+}
+
+.document-card__action--danger {
+  color: var(--color-error-500);
+}
+
 /* ------------------------------------------------------------------ *
  * Search
  * ------------------------------------------------------------------ */

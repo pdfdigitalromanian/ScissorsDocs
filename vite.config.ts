@@ -10,6 +10,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['ScissorsDoc.svg'],
+      workbox: {
+        globPatterns: [
+          '**/*.{js,mjs,css,html,ico,png,svg,woff2}',
+        ],
+      },
       manifest: {
         name: 'ScissorsDoc',
         short_name: 'ScissorsDoc',

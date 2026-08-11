@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom'
 import {
-  DocumentCollectionSection,
   DocumentEntrySection,
+  FavoriteDocumentsSection,
   GlobalSearch,
   HeroSection,
   QuickActionsSection,
@@ -20,20 +19,7 @@ export default function HomePage() {
       <QuickStartSection />
       <ToolCategories />
       <RecentDocumentsSection />
-      <DocumentCollectionSection
-        id="favorites"
-        title="Favorites"
-        description="Documents you mark as favorites stay one tap away."
-        icon="favorites"
-        emptyTitle="No favorites yet"
-        emptyDescription="Mark documents as favorites to keep them within reach."
-        emptyAction={
-          <Link className="home-section__link" to="/favorites">
-            Browse favorites
-          </Link>
-        }
-        viewAllHref="/favorites"
-      />
+      <FavoriteDocumentsSection />
       <GlobalSearch />
     </div>
   )

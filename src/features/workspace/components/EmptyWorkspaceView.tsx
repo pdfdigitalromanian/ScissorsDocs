@@ -67,17 +67,41 @@ export function EmptyWorkspaceView() {
       description="Open a document from this device to start working inside the workspace."
       action={
         <div className="empty-workspace__actions">
-          <OpenDocumentButton label="Open Document" variant="primary" />
-          <div className="empty-workspace__settings">
-            <Switch
-              checked={restoreEnabled}
-              onChange={(event) => handleRestoreToggle(event.target.checked)}
-              label="Reopen the workspace as you left it"
-            />
-            <span className="empty-workspace__settings-divider" aria-hidden="true" />
-            <Button variant="ghost" size="sm" onClick={handleClearWorkspace}>
-              Clear Local Workspace
-            </Button>
+          <OpenDocumentButton
+            label="Open Document"
+            variant="primary"
+            className="empty-workspace__open"
+          />
+          <div
+            className="empty-workspace__settings"
+            role="group"
+            aria-label="Workspace preferences"
+          >
+            <div className="empty-workspace__settings-row">
+              <div className="empty-workspace__settings-copy">
+                <span className="empty-workspace__settings-title">
+                  Reopen the workspace
+                </span>
+                <span className="empty-workspace__settings-hint">
+                  Restore your tabs and documents on your next visit.
+                </span>
+              </div>
+              <Switch
+                checked={restoreEnabled}
+                onChange={(event) => handleRestoreToggle(event.target.checked)}
+                aria-label="Reopen the workspace as you left it"
+              />
+            </div>
+            <div className="empty-workspace__settings-footer">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="empty-workspace__clear"
+                onClick={handleClearWorkspace}
+              >
+                Clear Local Workspace
+              </Button>
+            </div>
           </div>
         </div>
       }

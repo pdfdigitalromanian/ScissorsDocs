@@ -1,0 +1,85 @@
+/* ------------------------------------------------------------------ *
+ * EditorThumbnails — editable page strip in the Pages panel
+ * ------------------------------------------------------------------ */
+
+.editor-thumbnails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.editor-thumbnails__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-thin);
+}
+
+.editor-thumbnails__icon-flip {
+  transform: scaleX(-1);
+}
+
+.editor-thumbnails__summary {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-thumbnails__grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Selection ring outranks the pdf.css active border. */
+.editor-thumbnails__grid .pdf-thumbnail--selected,
+.editor-thumbnails__grid .pdf-thumbnail--selected:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-100);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* ------------------------------------------------------------------ *
+ * Editor dialogs
+ * ------------------------------------------------------------------ */
+
+.editor-dialog__text {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line-height);
+  color: var(--color-text-secondary);
+}
+
+.editor-dialog__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.editor-dialog__file {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.editor-dialog__modes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}

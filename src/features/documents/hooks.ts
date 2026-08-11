@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
-import type { LocalDocument } from './types'
+import type { LocalDocument, LocalFolder } from './types'
 import {
   getFileBlob,
   getLocalDocuments,
+  getLocalFolders,
+  getTrashedDocuments,
   subscribeLocalDocuments,
 } from './storage/registry'
 
-/**
- * Reactive view of the local document registry. Re-renders whenever a
- * document is registered, touched or removed.
- */
+/** Reactive view of the local document registry. Re-renders whenever a
+ * document is registered, renamed, touched, trashed or removed. */
 export function useLocalDocuments(): LocalDocument[] {
   const [documents, setDocuments] = useState<LocalDocument[]>(
     getLocalDocuments,
@@ -17,6 +17,34 @@ export function useLocalDocuments(): LocalDocument[] {
 
   useEffect(() => {
     const update = () => setDocuments(getLocalDocuments())
+    const unsubscribe = subscribeLocalDocuments(update)
+    return unsubscribe
+  }, [])
+
+  return documents
+}
+
+/** Reactive view of the local folder set. */
+export function useLocalFolders(): LocalFolder[] {
+  const [folders, setFolders] = useState<LocalFolder[]>(getLocalFolders)
+
+  useEffect(() => {
+    const update = () => setFolders(getLocalFolders())
+    const unsubscribe = subscribeLocalDocuments(update)
+    return unsubscribe
+  }, [])
+
+  return folders
+}
+
+/** Reactive view of the trash (soft-deleted documents). */
+export function useTrashedDocuments(): LocalDocument[] {
+  const [documents, setDocuments] = useState<LocalDocument[]>(
+    getTrashedDocuments,
+  )
+
+  useEffect(() => {
+    const update = () => setDocuments(getTrashedDocuments())
     const unsubscribe = subscribeLocalDocuments(update)
     return unsubscribe
   }, [])

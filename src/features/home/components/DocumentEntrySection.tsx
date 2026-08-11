@@ -1,8 +1,8 @@
-import { useNavigate } from 'react-router-dom'
-import { Link } from 'react-router-dom'
+import { useRef } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { Icon } from '@/components/icons/Icon'
 import { useToast } from '@/components/ui'
-import { ingestFiles } from '@/features/documents'
+import { ingestFiles, SUPPORTED_FILE_TYPES } from '@/features/documents'
 import HomeSection from './HomeSection'
 import UploadZone from './UploadZone'
 import {
@@ -48,6 +48,7 @@ function Shortcut({ shortcut }: { shortcut: DocumentEntryShortcut }) {
 export default function DocumentEntrySection() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const folderInputRef = useRef<HTMLInputElement | null>(null)
 
   async function handleFiles(files: File[]) {
     const results = await ingestFiles(files)
@@ -56,7 +57,10 @@ export default function DocumentEntrySection() {
 
     if (failed.length > 0) {
       toast({
-        title: 'Some files could not be opened',
+        title:
+          failed.length === 1
+            ? 'A file could not be opened'
+            : `${failed.length} files could not be opened`,
         description: failed[0].error ?? 'The file could not be read.',
         variant: 'error',
       })
@@ -68,20 +72,55 @@ export default function DocumentEntrySection() {
       )
     }
 
+    const ids = registered.map((result) => result.document!.id)
     toast({
-      title: 'Document added locally',
-      description: `${registered[0].document!.name} opened in the workspace.`,
+      title:
+        registered.length === 1
+          ? 'Document added locally'
+          : `${registered.length} documents added locally`,
+      description:
+        registered.length === 1
+          ? `${registered[0].document!.name} opened in the workspace.`
+          : 'Each document opened as a workspace tab.',
       variant: 'success',
     })
-    navigate(`/workspace?doc=${encodeURIComponent(registered[0].document!.id)}`)
+    navigate(`/workspace?docs=${encodeURIComponent(ids.join(','))}`)
+  }
+
+  function handleFolderSelection(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    event.target.value = ''
+    if (files.length === 0) return
+
+    const supported = files.filter((file) => {
+      const extension = file.name
+        .slice(file.name.lastIndexOf('.') + 1)
+        .toLowerCase()
+      return SUPPORTED_FILE_TYPES.some((type) => type.extension === extension)
+    })
+
+    if (supported.length === 0) {
+      toast({
+        title: 'No supported documents found',
+        description:
+          'The folder does not contain any files ScissorsDoc can open.',
+        variant: 'error',
+      })
+      return
+    }
+
+    toast({
+      title: 'Opening folder',
+      description: `Importing ${supported.length} supported document${
+        supported.length === 1 ? '' : 's'
+      } locally.`,
+      variant: 'info',
+    })
+    handleFiles(supported).catch(() => undefined)
   }
 
   function handleBrowseFolder() {
-    toast({
-      title: 'Browse folders',
-      description: 'Opening an entire folder arrives in a later phase.',
-      variant: 'info',
-    })
+    folderInputRef.current?.click()
   }
 
   return (
@@ -92,8 +131,24 @@ export default function DocumentEntrySection() {
     >
       <UploadZone onFiles={handleFiles} />
 
+      <input
+        ref={folderInputRef}
+        type="file"
+        className="visually-hidden"
+        accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.docx,.xlsx,.pptx"
+        // @ts-expect-error webkitdirectory is not part of the DOM typings
+        webkitdirectory="true"
+        multiple
+        onChange={handleFolderSelection}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
       <div className="home-entry__shortcuts">
-        <button type="button" className="home-shortcut" onClick={handleBrowseFolder}>
+        <button
+          type="button"
+          className="home-shortcut"
+          onClick={handleBrowseFolder}
+        >
           <Icon name="folder-open" size="sm" aria-hidden="true" />
           Browse folder
         </button>

@@ -11,11 +11,12 @@ import Button from '@/components/ui/Button'
 import EmptyState from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui'
 import {
+  deleteDocument,
   downloadDocument,
   findFileType,
   formatBytes,
   formatRelativeTime,
-  removeDocument,
+  setFavorite,
   useLocalDocuments,
 } from '@/features/documents'
 import type { LocalDocument } from '@/features/documents'
@@ -33,6 +34,7 @@ function toCardItem(document: LocalDocument): DocumentCardItem {
     lastOpenedLabel: formatRelativeTime(document.lastOpenedAt),
     tone: fileType?.tone ?? 'secondary',
     icon: fileType?.icon,
+    favorite: document.favorite,
   }
 }
 
@@ -57,11 +59,11 @@ export default function RecentDocumentsSection() {
 
   async function confirmRemoval() {
     if (!pendingRemoval) return
-    await removeDocument(pendingRemoval.id)
+    await deleteDocument(pendingRemoval.id)
     toast({
-      title: 'Document removed',
-      description: `${pendingRemoval.name} was removed from ScissorsDoc.`,
-      variant: 'success',
+      title: 'Moved to trash',
+      description: `${pendingRemoval.name} was moved to the trash and can be restored.`,
+      variant: 'info',
     })
     setPendingRemoval(null)
   }
@@ -94,6 +96,9 @@ export default function RecentDocumentsSection() {
               document={toCardItem(document)}
               onDownload={() => void handleDownload(document)}
               onRemove={() => setPendingRemoval(document)}
+              onToggleFavorite={() =>
+                void setFavorite(document.id, !document.favorite)
+              }
             />
           ))}
         </div>
@@ -105,12 +110,12 @@ export default function RecentDocumentsSection() {
         size="sm"
       >
         <ModalHeader>
-          <ModalTitle>Remove document?</ModalTitle>
+          <ModalTitle>Move to trash?</ModalTitle>
         </ModalHeader>
         <ModalBody>
           <p className="document-remove__message">
-            {pendingRemoval?.name} will be removed from ScissorsDoc. Your
-            original file stays on your device.
+            {pendingRemoval?.name} will be moved to the trash. You can restore
+            it later from the Recent or Favorites pages.
           </p>
         </ModalBody>
         <ModalFooter>
@@ -118,7 +123,7 @@ export default function RecentDocumentsSection() {
             Cancel
           </Button>
           <Button variant="primary" onClick={() => void confirmRemoval()}>
-            Remove
+            Move to trash
           </Button>
         </ModalFooter>
       </Modal>

@@ -38,6 +38,25 @@
   border-bottom: var(--border-divider);
 }
 
+.workspace-area__drop {
+  position: absolute;
+  z-index: var(--z-overlay);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-body-l-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  pointer-events: none;
+  background-color: color-mix(
+    in srgb,
+    var(--color-surface) 86%,
+    transparent
+  );
+  border: 2px dashed var(--color-primary);
+}
+
 .workspace-area__toolbar {
   display: flex;
   align-items: center;
@@ -94,6 +113,7 @@
 }
 
 .workspace-header__name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -120,15 +140,24 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Workspace Command Bar — disabled placeholder document actions
+ * Workspace Command Bar — document commands (Save, Zoom) and future
+ * document tools that remain disabled until their editors exist
  * ------------------------------------------------------------------ */
 
 .workspace-command-bar {
   flex-shrink: 0;
 }
 
-.workspace-command-bar__action {
+.workspace-command-bar__action:disabled {
   opacity: var(--disabled-opacity);
+}
+
+.workspace-command-bar__trigger {
+  min-height: var(--space-8);
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
+  line-height: var(--text-button-line-height);
+  letter-spacing: var(--text-button-letter-spacing);
 }
 
 .workspace-area__tabs {
@@ -445,25 +474,73 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-5);
+}
+
+.empty-workspace__open {
+  background-color: var(--color-primary-500);
+}
+
+.empty-workspace__open:hover {
+  background-color: var(--color-primary-600);
+}
+
+.empty-workspace__open:active {
+  background-color: var(--color-primary-700);
 }
 
 .empty-workspace__settings {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4);
+  width: 100%;
+  max-width: calc(var(--space-18) * 2);
+  padding: var(--space-4);
   border: var(--border-thin);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background-color: var(--color-surface-secondary);
+  text-align: start;
 }
 
-.empty-workspace__settings-divider {
-  width: 1px;
-  height: var(--space-5);
-  background-color: var(--color-border);
+.empty-workspace__settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.empty-workspace__settings-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.empty-workspace__settings-title {
+  font-size: var(--text-body-m-size);
+  line-height: var(--text-body-m-line-height);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-heading);
+}
+
+.empty-workspace__settings-hint {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-muted);
+}
+
+.empty-workspace__settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-block-start: var(--space-3);
+  margin-block-start: var(--space-3);
+  border-block-start: var(--border-divider);
+}
+
+.empty-workspace__clear {
+  color: var(--color-text-muted);
+}
+
+.empty-workspace__clear:hover {
+  color: var(--color-error);
 }
 
 /* ------------------------------------------------------------------ *

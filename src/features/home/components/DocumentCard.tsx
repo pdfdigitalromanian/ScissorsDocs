@@ -12,23 +12,26 @@ export interface DocumentCardItem {
   lastOpenedLabel: string
   tone: DocumentTone
   icon?: IconName
+  favorite?: boolean
 }
 
 interface DocumentCardProps {
   document: DocumentCardItem
   onDownload?: () => void
   onRemove?: () => void
+  onToggleFavorite?: () => void
 }
 
 /**
  * DocumentCard — entry card for a registered local document. The main
  * surface opens the document into a workspace session; optional actions
- * download or remove the local copy.
+ * toggle favorites, download or remove the local copy.
  */
 export default function DocumentCard({
   document,
   onDownload,
   onRemove,
+  onToggleFavorite,
 }: DocumentCardProps) {
   const navigate = useNavigate()
 
@@ -63,8 +66,26 @@ export default function DocumentCard({
           </span>
         </span>
       </button>
-      {onDownload || onRemove ? (
+      {onDownload || onRemove || onToggleFavorite ? (
         <span className="document-card__actions">
+          {onToggleFavorite ? (
+            <IconButton
+              icon="favorites"
+              label={
+                document.favorite
+                  ? `Remove ${document.name} from favorites`
+                  : `Add ${document.name} to favorites`
+              }
+              iconSize="sm"
+              className={`document-card__action${
+                document.favorite ? ' document-card__action--active' : ''
+              }`}
+              onClick={(event) => {
+                event.stopPropagation()
+                onToggleFavorite()
+              }}
+            />
+          ) : null}
           {onDownload ? (
             <IconButton
               icon="download"

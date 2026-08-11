@@ -18,6 +18,25 @@ export interface LocalDocument {
   createdAt: number
   /** Most recent time the document was opened in the workspace. */
   lastOpenedAt: number
+  /** Marked as a favorite by the user. */
+  favorite: boolean
+  /** Pinned documents sort ahead of unpinned ones. */
+  pin: boolean
+  /** Free-form tags attached to the document. */
+  tags: string[]
+  /** Owning local folder id; null means the root (no folder). */
+  folderId: string | null
+  /** Soft-delete timestamp. Documents with a value live in the trash. */
+  deletedAt: number | null
+  /** Most recent time the metadata changed (rename, tags, move, …). */
+  updatedAt: number
+}
+
+/** A user-created local folder used to organise documents. */
+export interface LocalFolder {
+  id: string
+  name: string
+  createdAt: number
 }
 
 /** Static description of a supported file type. */

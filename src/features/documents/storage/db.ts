@@ -1,11 +1,12 @@
-import type { LocalDocument } from '../types'
+import type { LocalDocument, LocalFolder } from '../types'
 import type { KeyValueBackend, LocalDocumentBackend, StoredFile } from './types'
 
 const DB_NAME = 'scissorsdoc'
-const DB_VERSION = 2
+const DB_VERSION = 3
 const DOCUMENT_STORE = 'documents'
 const FILE_STORE = 'files'
 const WORKSPACE_STORE = 'workspace'
+const FOLDER_STORE = 'folders'
 
 export type { StoredFile }
 
@@ -59,6 +60,9 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(WORKSPACE_STORE)) {
         db.createObjectStore(WORKSPACE_STORE, { keyPath: 'key' })
+      }
+      if (!db.objectStoreNames.contains(FOLDER_STORE)) {
+        db.createObjectStore(FOLDER_STORE, { keyPath: 'id' })
       }
     }
     request.onsuccess = () => resolve(request.result)
@@ -150,6 +154,22 @@ export const documentBackend: LocalDocumentBackend = {
   deleteFile(key: string): Promise<void> {
     return withTransaction(FILE_STORE, 'readwrite', (stores) => {
       stores[FILE_STORE].delete(key)
+    })
+  },
+
+  getAllFolders(): Promise<LocalFolder[]> {
+    return withStore(FOLDER_STORE, 'readonly', (store) => store.getAll())
+  },
+
+  putFolder(folder: LocalFolder): Promise<void> {
+    return withTransaction(FOLDER_STORE, 'readwrite', (stores) => {
+      stores[FOLDER_STORE].put(folder)
+    })
+  },
+
+  deleteFolder(id: string): Promise<void> {
+    return withTransaction(FOLDER_STORE, 'readwrite', (stores) => {
+      stores[FOLDER_STORE].delete(id)
     })
   },
 }

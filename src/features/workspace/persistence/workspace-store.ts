@@ -1,6 +1,6 @@
 import { workspaceBackend } from '@/features/documents/storage/db'
 import { PANEL_DEFAULTS } from '../config'
-import type { PanelId, PanelMode } from '../types'
+import type { DocumentTab, PanelId, PanelMode } from '../types'
 
 const WORKSPACE_STATE_KEY = 'workspace-state'
 const RESTORE_PREFERENCE_KEY = 'scissordoc-restore-workspace'
@@ -20,7 +20,10 @@ export interface WorkspaceStateSnapshot {
   activeTabId: string | null
   panels: Record<PanelId, PanelMode>
   panelSizes: Record<PanelId, number>
-  /** Reserved for the folders milestone — no folder structure exists yet. */
+  /**
+   * Reserved for a future workspace folder surface. Local folders live in
+   * the document backend (folders store), not in the session snapshot.
+   */
   folders: string[]
 }
 
@@ -93,6 +96,36 @@ export async function saveWorkspaceState(
     await workspaceBackend.putValue(WORKSPACE_STATE_KEY, snapshot)
   } catch {
     // Storage unavailable — the workspace simply is not persisted.
+  }
+}
+
+/** Builds a persisted snapshot from the live workspace state. */
+export function buildWorkspaceSnapshot(
+  tabs: DocumentTab[],
+  activeTabId: string | null,
+  panels: Record<PanelId, PanelMode>,
+  panelSizes: Record<PanelId, number>,
+): WorkspaceStateSnapshot {
+  return {
+    version: 1,
+    tabs: tabs
+      .filter(
+        (
+          tab,
+        ): tab is DocumentTab & {
+          localDocument: NonNullable<DocumentTab['localDocument']>
+        } => Boolean(tab.localDocument),
+      )
+      .map(
+        (tab): WorkspaceTabSnapshot => ({
+          localDocumentId: tab.localDocument.id,
+          title: tab.title,
+        }),
+      ),
+    activeTabId,
+    panels,
+    panelSizes,
+    folders: [],
   }
 }
 

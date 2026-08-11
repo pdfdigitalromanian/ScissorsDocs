@@ -15,7 +15,7 @@ interface OpenDocumentButtonProps {
 /**
  * OpenDocumentButton is the workspace's real file entry point. It opens a
  * file picker, ingests the selected files through the local document
- * registry and opens the first successfully registered document in a tab.
+ * registry and opens every successfully registered document as a tab.
  */
 export function OpenDocumentButton({
   label = 'Open Document',
@@ -25,7 +25,7 @@ export function OpenDocumentButton({
 }: OpenDocumentButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
-  const { openLocalDocument } = useWorkspace()
+  const { openLocalDocuments } = useWorkspace()
   const [busy, setBusy] = useState(false)
 
   async function handleFiles(files: File[]) {
@@ -38,14 +38,24 @@ export function OpenDocumentButton({
 
       if (failed.length > 0) {
         toast({
-          title: 'Some files could not be opened',
+          title:
+            failed.length === 1
+              ? 'A file could not be opened'
+              : `${failed.length} files could not be opened`,
           description: failed[0].error ?? 'The file could not be read.',
           variant: 'error',
         })
       }
 
       if (registered.length > 0) {
-        openLocalDocument(registered[0].document!)
+        openLocalDocuments(registered.map((result) => result.document!))
+        if (registered.length > 1) {
+          toast({
+            title: 'Documents opened',
+            description: `${registered.length} documents were opened as workspace tabs.`,
+            variant: 'success',
+          })
+        }
       }
     } finally {
       setBusy(false)

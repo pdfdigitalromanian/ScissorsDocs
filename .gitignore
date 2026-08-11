@@ -25,7 +25,7 @@ dist-ssr
 
 # Project prompt files
 Pmt/
-prompt/
+xyz/
 
 # Markdown documentation and agent configuration
 *.md

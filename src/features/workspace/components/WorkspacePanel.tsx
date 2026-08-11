@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import IconButton from '@/components/ui/IconButton'
 import { PanelContent, PanelHeader, PanelTitle } from '@/components/layout'
 import type { IconName } from '@/components/icons/Icon'
-import { PdfThumbnails } from '@/features/pdf'
+import { EditorThumbnails } from '@/features/editor/components/EditorThumbnails'
 import { PANEL_DEFAULTS, getRegionsForSlot } from '../config'
 import type { PanelId, PanelSlot } from '../types'
 import { useWorkspace } from '../state/use-workspace'
@@ -104,7 +104,7 @@ export function WorkspacePanel({ panel }: WorkspacePanelProps) {
         {reservedRegions.length > 0 ? (
           reservedRegions.map((region) => (
             <PanelRegion key={region.id} title={region.label}>
-              {region.id === 'thumbnail' ? <PdfThumbnails /> : undefined}
+              {region.id === 'thumbnail' ? <EditorThumbnails /> : undefined}
             </PanelRegion>
           ))
         ) : (

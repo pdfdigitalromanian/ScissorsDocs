@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react'
 import { Icon } from '@/components/icons/Icon'
+import IconButton from '@/components/ui/IconButton'
+import Button from '@/components/ui/Button'
+import { useToast } from '@/components/ui'
 import { LocalDocumentPreview } from '@/features/pdf'
+import { downloadDocument, downloadDocumentCopy } from '@/features/documents'
 import type { DocumentTab } from '../types'
 import { DOCUMENT_PANEL_ID, getTabElementId } from '../config'
 import { EmptyWorkspaceView } from './EmptyWorkspaceView'
@@ -19,8 +23,30 @@ export function DocumentContainer({
   activeTab,
   children,
 }: DocumentContainerProps) {
+  const { toast } = useToast()
+
   if (!activeTab) {
     return <EmptyWorkspaceView />
+  }
+
+  const localDocument = activeTab.localDocument
+
+  async function handleSaveCopy() {
+    if (!localDocument) return
+    const error = await downloadDocumentCopy(localDocument.id)
+    if (error) {
+      toast({
+        title: 'Could not save a copy',
+        description: error,
+        variant: 'error',
+      })
+      return
+    }
+    toast({
+      title: 'Copy saved',
+      description: `${localDocument.name} was downloaded as a new copy.`,
+      variant: 'success',
+    })
   }
 
   return (
@@ -38,10 +64,28 @@ export function DocumentContainer({
             {activeTab.subtitle}
           </span>
         )}
+        {localDocument && (
+          <span className="document-container__actions">
+            <IconButton
+              icon="download"
+              label={`Download ${activeTab.title}`}
+              iconSize="sm"
+              onClick={() => void downloadDocument(localDocument.id)}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleSaveCopy()}
+            >
+              <Icon name="copy" size="sm" aria-hidden="true" />
+              Save a copy
+            </Button>
+          </span>
+        )}
       </div>
       <div className="document-container__surface">
-        {activeTab.localDocument ? (
-          <LocalDocumentPreview document={activeTab.localDocument} />
+        {localDocument ? (
+          <LocalDocumentPreview document={localDocument} />
         ) : (
           children ?? (
             <div

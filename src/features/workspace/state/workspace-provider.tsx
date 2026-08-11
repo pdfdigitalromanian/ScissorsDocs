@@ -13,6 +13,7 @@ import type {
 
 interface WorkspaceContextValue extends WorkspaceState {
   activeTab: DocumentTab | null
+  openLocalDocuments: (documents: LocalDocument[]) => void
   openLocalDocument: (document: LocalDocument) => void
   togglePanel: (panel: PanelId) => void
   togglePanelVisibility: (panel: PanelId) => void
@@ -102,17 +103,31 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   }, [])
 
   /**
+   * Opens a batch of local document sessions. Documents that already have a
+   * tab are not duplicated; the first document in the batch becomes the
+   * active tab so an uploaded folder/multi-selection lands on its primary
+   * file.
+   */
+  const openLocalDocuments = useCallback((documents: LocalDocument[]) => {
+    if (documents.length === 0) return
+    setTabs((prev) => {
+      const existing = new Set(prev.map((tab) => tab.id))
+      const additions = documents
+        .filter((document) => !existing.has(document.id))
+        .map(toLocalDocumentTab)
+      return additions.length === 0 ? prev : [...prev, ...additions]
+    })
+    setActiveTabId(documents[0].id)
+  }, [])
+
+  /**
    * Opens a local document session. Re-opening an already-open document
    * only activates its existing tab (no duplicate sessions).
    */
-  const openLocalDocument = useCallback((document: LocalDocument) => {
-    setTabs((prev) =>
-      prev.some((tab) => tab.id === document.id)
-        ? prev
-        : [...prev, toLocalDocumentTab(document)],
-    )
-    setActiveTabId(document.id)
-  }, [])
+  const openLocalDocument = useCallback(
+    (document: LocalDocument) => openLocalDocuments([document]),
+    [openLocalDocuments],
+  )
 
   const closeTab = useCallback(
     (tabId: string) => {
@@ -160,6 +175,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       activeTabId,
       activeTab,
       floatingRegions,
+      openLocalDocuments,
       openLocalDocument,
       togglePanel,
       togglePanelVisibility,
@@ -176,6 +192,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       activeTabId,
       activeTab,
       floatingRegions,
+      openLocalDocuments,
       openLocalDocument,
       togglePanel,
       togglePanelVisibility,

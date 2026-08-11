@@ -7,8 +7,8 @@ import {
   getRestorePreference,
   loadWorkspaceState,
   saveWorkspaceState,
+  buildWorkspaceSnapshot,
 } from './workspace-store'
-import type { WorkspaceStateSnapshot, WorkspaceTabSnapshot } from './workspace-store'
 
 /**
  * useWorkspacePersistence hydrates the workspace from local storage on mount
@@ -80,23 +80,7 @@ export function useWorkspacePersistence() {
   useEffect(() => {
     if (!hydratedRef.current) return
 
-    const snapshot: WorkspaceStateSnapshot = {
-      version: 1,
-      tabs: tabs
-        .filter((tab): tab is DocumentTab & { localDocument: NonNullable<DocumentTab['localDocument']> } =>
-          Boolean(tab.localDocument),
-        )
-        .map(
-          (tab): WorkspaceTabSnapshot => ({
-            localDocumentId: tab.localDocument.id,
-            title: tab.title,
-          }),
-        ),
-      activeTabId,
-      panels,
-      panelSizes,
-      folders: [],
-    }
+    const snapshot = buildWorkspaceSnapshot(tabs, activeTabId, panels, panelSizes)
     const handle = window.setTimeout(() => {
       void saveWorkspaceState(snapshot)
     }, 300)

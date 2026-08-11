@@ -5,6 +5,7 @@ import RootLayout from '@/layouts/RootLayout'
 import { appRoutes } from '@/app/routes'
 
 const HomePage = lazy(() => import('@/pages/HomePage'))
+const LibraryPage = lazy(() => import('@/pages/LibraryPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const PlaceholderPage = lazy(() => import('@/pages/PlaceholderPage'))
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'))
@@ -26,6 +27,8 @@ export const router = createBrowserRouter([
               element:
                 route.path === '/workspace' ? (
                   <WorkspacePage />
+                ) : route.path === '/recent' || route.path === '/favorites' ? (
+                  <LibraryPage />
                 ) : (
                   <PlaceholderPage
                     title={route.label}

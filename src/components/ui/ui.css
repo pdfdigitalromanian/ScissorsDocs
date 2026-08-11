@@ -146,7 +146,7 @@
   height: var(--space-13);
   margin-bottom: var(--space-2);
   border-radius: var(--radius-circle);
-  background-color: var(--color-primary);
+  background-color: var(--color-primary-500);
   color: var(--color-surface-raw);
 }
 

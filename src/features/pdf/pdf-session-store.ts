@@ -8,6 +8,14 @@ export interface PdfSessionSnapshot {
   zoom: number
   fitMode: PdfFitMode
   mode: PdfViewMode
+  /** Page rotation in degrees — one of 0, 90, 180, 270. */
+  rotation?: number
+}
+
+const ROTATIONS = [0, 90, 180, 270]
+
+function readRotation(value: unknown): number {
+  return typeof value === 'number' && ROTATIONS.includes(value) ? value : 0
 }
 
 function sessionKey(id: string): string {
@@ -40,6 +48,7 @@ export async function loadPdfSession(
         snapshot.mode === 'continuous' || snapshot.mode === 'single'
           ? snapshot.mode
           : 'continuous',
+      rotation: readRotation(snapshot.rotation),
     }
   } catch {
     return null
