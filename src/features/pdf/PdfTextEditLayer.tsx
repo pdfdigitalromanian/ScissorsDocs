@@ -13,7 +13,6 @@ interface PdfTextEditLayerProps {
   scale: number
   sourceCanvas: HTMLCanvasElement
   backgroundCanvas: HTMLCanvasElement
-  onReady: () => void
   onCommit: (edit: PdfTextEdit) => void
 }
 
@@ -23,21 +22,20 @@ type EditableTextItem = Extract<PdfTextContentItem, { str: string }>
 
 interface PdfFontFaceObject {
   data?: Uint8Array | ArrayBuffer | null
-  bold?: boolean
-  italic?: boolean
+  isType3Font?: boolean
   loadedName?: string
-  cssFontInfo?: {
-    fontFamily?: string
-    fontWeight?: string
-    italicAngle?: number
-  } | null
+  missingFile?: boolean
+  name?: string
 }
 
 interface TextRunVisual {
   color: [number, number, number]
-  fontData?: Uint8Array
-  fontBold: boolean
-  fontItalic: boolean
+  pdfFontName: string
+}
+
+interface TextRunPaint {
+  color: [number, number, number]
+  painted: boolean
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -112,17 +110,18 @@ function textCanvasBounds(
   }
 }
 
-function sampleTextColor(
+function inspectTextPaint(
   element: HTMLElement,
   container: HTMLElement,
   sourceCanvas: HTMLCanvasElement,
   backgroundCanvas: HTMLCanvasElement,
-): [number, number, number] {
+): TextRunPaint {
+  const fallback: [number, number, number] = [0.08, 0.1, 0.16]
   const source = sourceCanvas.getContext('2d', { willReadFrequently: true })
   const background = backgroundCanvas.getContext('2d', {
     willReadFrequently: true,
   })
-  if (!source || !background) return [0.08, 0.1, 0.16]
+  if (!source || !background) return { color: fallback, painted: false }
 
   const { pixels } = textCanvasBounds(element, container, sourceCanvas, 1)
   const width = Math.max(1, pixels.right - pixels.left)
@@ -160,7 +159,9 @@ function sampleTextColor(
         if (score > 36) candidates.push({ score, red, green, blue })
       }
     }
-    if (candidates.length === 0) return [0.08, 0.1, 0.16]
+    if (candidates.length === 0) {
+      return { color: fallback, painted: false }
+    }
     candidates.sort((left, right) => right.score - left.score)
     const sample = candidates.slice(
       0,
@@ -174,13 +175,16 @@ function sampleTextColor(
       }),
       { red: 0, green: 0, blue: 0 },
     )
-    return [
-      total.red / sample.length / 255,
-      total.green / sample.length / 255,
-      total.blue / sample.length / 255,
-    ]
+    return {
+      color: [
+        total.red / sample.length / 255,
+        total.green / sample.length / 255,
+        total.blue / sample.length / 255,
+      ],
+      painted: true,
+    }
   } catch {
-    return [0.08, 0.1, 0.16]
+    return { color: fallback, painted: false }
   }
 }
 
@@ -196,26 +200,65 @@ function fontObjectFor(
   }
 }
 
-function measureSpaceWidth(element: HTMLElement, scale: number): number {
-  const context = document.createElement('canvas').getContext('2d')
-  if (!context) return 0
-  const style = window.getComputedStyle(element)
-  context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
-  const horizontalScale =
-    Number.parseFloat(element.style.getPropertyValue('--scale-x')) || 1
-  return (context.measureText(' ').width * horizontalScale) / scale
+function textHorizontalScale(item: EditableTextItem): number {
+  const horizontal = Math.hypot(
+    Number(item.transform[0]),
+    Number(item.transform[1]),
+  )
+  const vertical = Math.hypot(
+    Number(item.transform[2]),
+    Number(item.transform[3]),
+  )
+  return Number.isFinite(horizontal / vertical) && vertical > 0
+    ? horizontal / vertical
+    : 1
 }
 
-function copyFontData(font: PdfFontFaceObject | null): Uint8Array | undefined {
-  if (!font?.data) return undefined
-  if (font.data instanceof Uint8Array) return new Uint8Array(font.data)
-  return new Uint8Array(font.data.slice(0))
+function textFontSize(item: EditableTextItem): number {
+  const transform = item.transform
+  return Math.hypot(Number(transform[2]), Number(transform[3]))
+}
+
+function fontDataByteLength(font: PdfFontFaceObject | null): number {
+  return font?.data?.byteLength ?? 0
 }
 
 function dataUrlBytes(dataUrl: string): Uint8Array {
   const encoded = dataUrl.slice(dataUrl.indexOf(',') + 1)
   const binary = window.atob(encoded)
   return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+}
+
+function createEditingPatch(
+  element: HTMLElement,
+  container: HTMLElement,
+  backgroundCanvas: HTMLCanvasElement,
+): HTMLCanvasElement {
+  const bounds = textCanvasBounds(element, container, backgroundCanvas, 3)
+  const width = Math.max(1, bounds.pixels.right - bounds.pixels.left)
+  const height = Math.max(1, bounds.pixels.bottom - bounds.pixels.top)
+  const patch = document.createElement('canvas')
+  patch.className = 'pdf-text-edit-layer__patch'
+  patch.width = width
+  patch.height = height
+  patch.style.left = `${bounds.css.left}px`
+  patch.style.top = `${bounds.css.top}px`
+  patch.style.width = `${bounds.css.right - bounds.css.left}px`
+  patch.style.height = `${bounds.css.bottom - bounds.css.top}px`
+  const context = patch.getContext('2d')
+  if (!context) throw new Error('The PDF background could not be displayed.')
+  context.drawImage(
+    backgroundCanvas,
+    bounds.pixels.left,
+    bounds.pixels.top,
+    width,
+    height,
+    0,
+    0,
+    width,
+    height,
+  )
+  return patch
 }
 
 function captureBackgroundPatch(
@@ -268,13 +311,13 @@ export function PdfTextEditLayer({
   scale,
   sourceCanvas,
   backgroundCanvas,
-  onReady,
   onCommit,
 }: PdfTextEditLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const itemsRef = useRef<EditableTextItem[]>([])
   const originalsRef = useRef<Map<number, string>>(new Map())
   const visualsRef = useRef<Map<number, TextRunVisual>>(new Map())
+  const patchesRef = useRef<Map<number, HTMLCanvasElement>>(new Map())
   const skipCommitRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
@@ -284,7 +327,9 @@ export function PdfTextEditLayer({
     let cancelled = false
     let layer: InstanceType<typeof pdfjs.TextLayer> | null = null
     const visuals = new Map<number, TextRunVisual>()
+    const patches = new Map<number, HTMLCanvasElement>()
     visualsRef.current = visuals
+    patchesRef.current = patches
     skipCommitRef.current = new Set()
     container.replaceChildren()
     container.classList.remove('pdf-text-edit-layer--ready')
@@ -308,6 +353,7 @@ export function PdfTextEditLayer({
         })
         await layer.render()
         if (cancelled) return
+        let unavailableRuns = 0
         layer.textDivs.forEach((element, index) => {
           const original = items[index]?.str ?? ''
           if (hasNewerRunAtSameBaseline(items, index)) {
@@ -317,43 +363,49 @@ export function PdfTextEditLayer({
           if (!original.trim()) return
           const item = items[index]
           const font = item ? fontObjectFor(page, item.fontName) : null
-          const color = sampleTextColor(
+          const paint = inspectTextPaint(
             element,
             container,
             sourceCanvas,
             backgroundCanvas,
           )
-          const fontBold = Boolean(font?.bold)
-          const fontItalic = Boolean(font?.italic)
+          if (
+            !paint.painted ||
+            fontDataByteLength(font) === 0 ||
+            !font?.loadedName ||
+            !font.name ||
+            font.missingFile ||
+            font.isType3Font
+          ) {
+            unavailableRuns += 1
+            element.remove()
+            return
+          }
           visuals.set(index, {
-            color,
-            fontData: copyFontData(font),
-            fontBold,
-            fontItalic,
+            color: paint.color,
+            pdfFontName: font.name,
           })
           element.dataset.textItemIndex = String(index)
+          element.dataset.pdfFontSource = 'embedded'
           element.classList.add('pdf-text-edit-layer__item')
           element.style.setProperty(
             '--pdf-text-color',
-            `rgb(${Math.round(color[0] * 255)} ${Math.round(color[1] * 255)} ${Math.round(color[2] * 255)})`,
+            `rgb(${Math.round(paint.color[0] * 255)} ${Math.round(paint.color[1] * 255)} ${Math.round(paint.color[2] * 255)})`,
           )
-          const fontFamily = font?.cssFontInfo?.fontFamily ?? font?.loadedName
-          if (fontFamily) element.style.fontFamily = `"${fontFamily}"`
-          if (font?.cssFontInfo?.fontWeight || fontBold) {
-            element.style.fontWeight =
-              font?.cssFontInfo?.fontWeight ?? (fontBold ? '700' : '400')
-          }
-          if (font?.cssFontInfo?.italicAngle || fontItalic) {
-            element.style.fontStyle = 'italic'
-          }
+          // PDF.js registers the embedded font program under this generated
+          // family. Do not use cssFontInfo or synthesize weight/style here:
+          // either can make the browser select a local or fallback face.
+          element.style.fontFamily = `"${font.loadedName}"`
+          if (font?.name) element.dataset.pdfFontName = font.name
+          element.dataset.pdfFontSize = String(textFontSize(item))
           element.setAttribute('contenteditable', 'plaintext-only')
           element.setAttribute('role', 'textbox')
           element.setAttribute('aria-label', `Edit text: ${original}`)
-          element.setAttribute('spellcheck', 'true')
+          element.setAttribute('spellcheck', 'false')
           element.tabIndex = 0
         })
+        container.dataset.unavailableTextRuns = String(unavailableRuns)
         container.classList.add('pdf-text-edit-layer--ready')
-        onReady()
       })
       .catch((reason: unknown) => {
         if (!cancelled) {
@@ -369,24 +421,38 @@ export function PdfTextEditLayer({
       layer?.cancel()
       itemsRef.current = []
       visuals.clear()
+      patches.clear()
       container.replaceChildren()
     }
-  }, [page, scale, sourceCanvas, backgroundCanvas, onReady])
+  }, [page, scale, sourceCanvas, backgroundCanvas])
+
+  function removeEditingPatch(index: number) {
+    patchesRef.current.get(index)?.remove()
+    patchesRef.current.delete(index)
+  }
 
   function handleFocus(event: ReactFocusEvent<HTMLDivElement>) {
-    editableTarget(event.target)?.classList.add(
-      'pdf-text-edit-layer__item--active',
-    )
+    const target = editableTarget(event.target)
+    const container = containerRef.current
+    if (!target || !container) return
+    const index = Number(target.dataset.textItemIndex)
+    if (!patchesRef.current.has(index)) {
+      const patch = createEditingPatch(target, container, backgroundCanvas)
+      container.prepend(patch)
+      patchesRef.current.set(index, patch)
+    }
+    target.classList.add('pdf-text-edit-layer__item--active')
   }
 
   function handleInput(event: ReactFormEvent<HTMLDivElement>) {
     const target = editableTarget(event.target)
     if (!target) return
     const index = Number(target.dataset.textItemIndex)
-    target.classList.toggle(
-      'pdf-text-edit-layer__item--changed',
-      target.textContent !== originalsRef.current.get(index),
-    )
+    const changed = target.textContent !== originalsRef.current.get(index)
+    target.classList.toggle('pdf-text-edit-layer__item--changed', changed)
+    patchesRef.current
+      .get(index)
+      ?.classList.toggle('pdf-text-edit-layer__patch--visible', changed)
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
@@ -414,31 +480,37 @@ export function PdfTextEditLayer({
     const index = Number(target.dataset.textItemIndex)
     if (skipCommitRef.current.delete(index)) {
       target.classList.remove('pdf-text-edit-layer__item--changed')
+      removeEditingPatch(index)
       return
     }
     const item = itemsRef.current[index]
     const visual = visualsRef.current.get(index)
     const text = target.textContent ?? ''
-    if (!item || !visual || text === originalsRef.current.get(index)) return
+    if (!item || !visual) {
+      removeEditingPatch(index)
+      return
+    }
+    if (text === originalsRef.current.get(index)) {
+      removeEditingPatch(index)
+      return
+    }
 
     originalsRef.current.set(index, text)
-    target.classList.remove('pdf-text-edit-layer__item--changed')
+    target.classList.add('pdf-text-edit-layer__item--changed')
     onCommit({
       pageIndex: page.pageNumber - 1,
       x: Number(item.transform[4]),
       y: Number(item.transform[5]),
       width: Math.max(Number(item.width), Number(item.height)),
       height: Math.max(Number(item.height), 1),
-      fontSize: Math.max(Number(item.height), 4),
-      spaceWidth: measureSpaceWidth(target, scale),
+      fontSize: Math.max(textFontSize(item), 4),
+      horizontalScale: textHorizontalScale(item),
       rotation:
         (Math.atan2(Number(item.transform[1]), Number(item.transform[0])) *
           180) /
         Math.PI,
       color: visual.color,
-      fontData: visual.fontData,
-      fontBold: visual.fontBold,
-      fontItalic: visual.fontItalic,
+      pdfFontName: visual.pdfFontName,
       backgroundPatch: captureBackgroundPatch(
         target,
         container,

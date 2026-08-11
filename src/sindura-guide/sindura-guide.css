@@ -120,7 +120,7 @@ html {
   text-decoration: none;
 }
 
-.sg-theme-menu .dropdown__trigger {
+.sg-theme-menu {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -142,14 +142,14 @@ html {
     transform var(--duration-press) var(--ease-standard);
 }
 
-.sg-theme-menu .dropdown__trigger:hover {
+.sg-theme-menu:hover {
   background: var(--color-surface);
   border-color: var(--color-primary);
   color: var(--color-text);
   box-shadow: var(--shadow-xs);
 }
 
-.sg-theme-menu .dropdown__trigger:active {
+.sg-theme-menu:active {
   transform: scale(0.96);
 }
 

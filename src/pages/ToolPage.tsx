@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { Icon } from '@/components/icons/Icon'
 import EmptyState from '@/components/ui/EmptyState'
 import ToolRunner from '@/features/tools/components/ToolRunner'
@@ -8,6 +8,10 @@ import '@/features/tools/tools.css'
 export default function ToolPage() {
   const { toolId = '' } = useParams()
   const tool = getToolDefinition(toolId)
+
+  if (toolId === 'edit-text') {
+    return <Navigate to="/workspace?tool=edit-text" replace />
+  }
 
   if (!tool) {
     return (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
 import type { PdfTextEdit } from '@/features/editor/model'
 import { pdfjs, renderPdfPageToCanvas } from './pdfjs'
@@ -37,9 +37,7 @@ function EditablePageLayers({
   const [backgroundCanvas, setBackgroundCanvas] =
     useState<HTMLCanvasElement | null>(null)
   const [backgroundReady, setBackgroundReady] = useState(false)
-  const [textLayerReady, setTextLayerReady] = useState(false)
   const pageNumber = page.pageNumber
-  const handleTextLayerReady = useCallback(() => setTextLayerReady(true), [])
 
   useEffect(() => {
     if (!backgroundCanvas) return
@@ -87,7 +85,7 @@ function EditablePageLayers({
     <>
       <canvas
         ref={setBackgroundCanvas}
-        className={`pdf-page__background-canvas${textLayerReady ? ' pdf-page__background-canvas--ready' : ''}`}
+        className="pdf-page__background-canvas"
         aria-hidden="true"
       />
       {backgroundReady && backgroundCanvas ? (
@@ -96,7 +94,6 @@ function EditablePageLayers({
           scale={scale}
           sourceCanvas={sourceCanvas}
           backgroundCanvas={backgroundCanvas}
-          onReady={handleTextLayerReady}
           onCommit={onTextEdit}
         />
       ) : null}

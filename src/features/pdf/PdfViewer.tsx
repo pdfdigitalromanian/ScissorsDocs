@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { PDFPageProxy } from 'pdfjs-dist'
 import type { PdfTextEdit } from '@/features/editor/model'
 import { usePdfEditor } from '@/features/editor/PdfEditorProvider'
@@ -297,6 +298,7 @@ interface PdfViewerProps {
  * thumbnail panel stays in sync.
  */
 export function PdfViewer({ document }: PdfViewerProps) {
+  const [searchParams] = useSearchParams()
   const session = usePdfSession()
   const editor = usePdfEditor()
   const { toast } = useToast()
@@ -310,7 +312,8 @@ export function PdfViewer({ document }: PdfViewerProps) {
     height: 0,
   })
   const [infoOpen, setInfoOpen] = useState(false)
-  const [textEditing, setTextEditing] = useState(false)
+  const requestedTextEditing = searchParams.get('tool') === 'edit-text'
+  const [textEditing, setTextEditing] = useState(requestedTextEditing)
 
   const handleTextEdit = useCallback(
     (edit: PdfTextEdit) => {

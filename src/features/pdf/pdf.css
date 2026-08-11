@@ -156,10 +156,6 @@
   pointer-events: none;
 }
 
-.pdf-page__background-canvas--ready {
-  opacity: 1;
-}
-
 /* ------------------------------------------------------------------ *
  * Live PDF text editing layer
  * ------------------------------------------------------------------ */
@@ -192,7 +188,7 @@
   transform-origin: 0 0;
 }
 
-.pdf-text-edit-layer > :not(.markedContent),
+.pdf-text-edit-layer > span:not(.markedContent),
 .pdf-text-edit-layer .markedContent span:not(.markedContent) {
   --font-height: 0;
   --scale-x: 1;
@@ -208,7 +204,7 @@
 }
 
 .pdf-text-edit-layer .pdf-text-edit-layer__item {
-  color: var(--pdf-text-color, #111827);
+  color: transparent;
   min-width: 0.25rem;
   border-radius: 2px;
   outline: 1px solid transparent;
@@ -221,10 +217,35 @@
     box-shadow var(--transition-fast) var(--ease-standard);
 }
 
-.pdf-text-edit-layer__item:hover,
-.pdf-text-edit-layer__item:focus,
-.pdf-text-edit-layer__item--active,
-.pdf-text-edit-layer__item--changed {
+.pdf-text-edit-layer__patch {
+  position: absolute;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pdf-text-edit-layer__patch--visible {
+  opacity: 1;
+}
+
+.pdf-text-edit-layer .pdf-text-edit-layer__item:hover {
+  outline-color: var(--color-primary);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.pdf-text-edit-layer
+  .pdf-text-edit-layer__item:focus:not(.pdf-text-edit-layer__item--changed),
+.pdf-text-edit-layer
+  .pdf-text-edit-layer__item--active:not(.pdf-text-edit-layer__item--changed) {
+  color: transparent;
+  background-color: transparent;
+  outline-color: var(--color-primary);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.pdf-text-edit-layer .pdf-text-edit-layer__item--changed {
   color: var(--pdf-text-color, #111827);
   background-color: transparent;
   outline-color: var(--color-primary);

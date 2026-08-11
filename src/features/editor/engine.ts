@@ -1,12 +1,26 @@
 import {
+  PDFArray,
+  PDFDict,
   PDFDocument,
+  PDFHexString,
+  PDFName,
   PDFPage,
-  StandardFonts,
+  PDFRawStream,
+  PDFStream,
+  beginText,
+  decodePDFRawStream,
   degrees,
+  endText,
   EncryptedPDFError,
+  popGraphicsState,
+  pushGraphicsState,
   rgb,
+  rotateAndSkewTextRadiansAndTranslate,
+  setCharacterSqueeze,
+  setFillingColor,
+  setFontAndSize,
+  showText,
 } from 'pdf-lib'
-import fontkit from '@pdf-lib/fontkit'
 import type {
   EditorPage,
   PageRange,
@@ -94,6 +108,151 @@ function normalizeRotation(angle: number): PdfRotation {
   return (rounded === 360 ? 0 : rounded) as PdfRotation
 }
 
+interface ExistingFontResource {
+  key: PDFName
+  unicodeToCode: Map<string, string>
+}
+
+function decodeUnicodeHex(hex: string): string {
+  if (hex.length === 0 || hex.length % 4 !== 0) return ''
+  const units: number[] = []
+  for (let offset = 0; offset < hex.length; offset += 4) {
+    units.push(Number.parseInt(hex.slice(offset, offset + 4), 16))
+  }
+  if (units[0] === 0xfeff) units.shift()
+  return String.fromCharCode(...units)
+}
+
+function incrementHex(hex: string, amount: number): string {
+  return (BigInt(`0x${hex}`) + BigInt(amount))
+    .toString(16)
+    .padStart(hex.length, '0')
+    .toUpperCase()
+}
+
+function parseToUnicodeCMap(bytes: Uint8Array): Map<string, string> {
+  const source = new TextDecoder().decode(bytes).replace(/%[^\r\n]*/g, '')
+  const unicodeToCode = new Map<string, string>()
+
+  for (const section of source.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)) {
+    for (const pair of section[1].matchAll(
+      /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g,
+    )) {
+      const unicode = decodeUnicodeHex(pair[2])
+      if (unicode && !unicodeToCode.has(unicode)) {
+        unicodeToCode.set(unicode, pair[1].toUpperCase())
+      }
+    }
+  }
+
+  for (const section of source.matchAll(/beginbfrange([\s\S]*?)endbfrange/g)) {
+    const body = section[1]
+    const arrayPattern = /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*\[([\s\S]*?)\]/g
+    for (const range of body.matchAll(arrayPattern)) {
+      const start = Number.parseInt(range[1], 16)
+      const end = Number.parseInt(range[2], 16)
+      const destinations = [...range[3].matchAll(/<([0-9A-Fa-f]+)>/g)]
+      for (
+        let code = start, index = 0;
+        code <= end && index < destinations.length;
+        code += 1, index += 1
+      ) {
+        const unicode = decodeUnicodeHex(destinations[index][1])
+        if (unicode && !unicodeToCode.has(unicode)) {
+          unicodeToCode.set(
+            unicode,
+            code.toString(16).padStart(range[1].length, '0').toUpperCase(),
+          )
+        }
+      }
+    }
+
+    const directBody = body.replace(arrayPattern, '')
+    for (const range of directBody.matchAll(
+      /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g,
+    )) {
+      const start = Number.parseInt(range[1], 16)
+      const end = Number.parseInt(range[2], 16)
+      for (let code = start; code <= end; code += 1) {
+        const unicode = decodeUnicodeHex(incrementHex(range[3], code - start))
+        if (unicode && !unicodeToCode.has(unicode)) {
+          unicodeToCode.set(
+            unicode,
+            code.toString(16).padStart(range[1].length, '0').toUpperCase(),
+          )
+        }
+      }
+    }
+  }
+
+  return unicodeToCode
+}
+
+function fontBaseName(dictionary: PDFDict): string | undefined {
+  const direct = dictionary.lookupMaybe(PDFName.of('BaseFont'), PDFName)
+  if (direct) return direct.asString().replace(/^\//, '')
+  const descendants = dictionary.lookupMaybe(
+    PDFName.of('DescendantFonts'),
+    PDFArray,
+  )
+  return descendants
+    ?.lookupMaybe(0, PDFDict)
+    ?.lookupMaybe(PDFName.of('BaseFont'), PDFName)
+    ?.asString()
+    .replace(/^\//, '')
+}
+
+function findExistingFontResource(
+  doc: PDFDocument,
+  page: PDFPage,
+  pdfFontName: string,
+): ExistingFontResource | null {
+  const resources = page.node.Resources()
+  const fonts = resources?.lookupMaybe(PDFName.of('Font'), PDFDict)
+  if (!fonts) return null
+
+  for (const [key, value] of fonts.entries()) {
+    const dictionary = doc.context.lookupMaybe(value, PDFDict)
+    if (!dictionary || fontBaseName(dictionary) !== pdfFontName) continue
+    const toUnicodeObject = dictionary.get(PDFName.of('ToUnicode'))
+    const toUnicode = doc.context.lookupMaybe(toUnicodeObject, PDFStream)
+    if (!(toUnicode instanceof PDFRawStream)) return null
+    const unicodeToCode = parseToUnicodeCMap(
+      decodePDFRawStream(toUnicode).decode(),
+    )
+    if (unicodeToCode.size === 0) return null
+    return { key, unicodeToCode }
+  }
+
+  return null
+}
+
+function encodeWithExistingFont(
+  text: string,
+  unicodeToCode: Map<string, string>,
+): PDFHexString {
+  const mappings = [...unicodeToCode.entries()].sort(
+    ([left], [right]) => right.length - left.length,
+  )
+  let encoded = ''
+  let offset = 0
+  while (offset < text.length) {
+    const mapping = mappings.find(([unicode]) =>
+      text.startsWith(unicode, offset),
+    )
+    if (!mapping) {
+      const character = String.fromCodePoint(text.codePointAt(offset) ?? 0)
+      throw new EditorPdfError(
+        `The embedded PDF font does not contain “${character}”, so no replacement was made.`,
+        'unsupported',
+      )
+    }
+    encoded += mapping[1]
+    offset += mapping[0].length
+  }
+  return PDFHexString.of(encoded)
+}
+
 /** Rotates the given pages by a quarter turn. */
 export function rotatePages(
   doc: PDFDocument,
@@ -112,8 +271,9 @@ export function rotatePages(
 /**
  * Replaces one extracted text run. The background patch comes from a PDF.js
  * render with text operators disabled, so images, gradients and line art stay
- * intact. Whenever PDF.js exposes the embedded font bytes, the same typeface
- * is embedded for the replacement instead of substituting Helvetica.
+ * intact. The replacement reuses the page's existing composite-font resource
+ * and its ToUnicode map, preserving the original embedded glyph program and
+ * metrics without font substitution or fontkit re-encoding.
  */
 export async function replaceTextRun(
   doc: PDFDocument,
@@ -127,6 +287,17 @@ export async function replaceTextRun(
     )
   }
 
+  const font = findExistingFontResource(doc, page, edit.pdfFontName)
+  if (!font) {
+    throw new EditorPdfError(
+      'The original embedded PDF font resource could not be reused exactly, so no replacement was made.',
+      'unsupported',
+    )
+  }
+  const encodedText = edit.text
+    ? encodeWithExistingFont(edit.text, font.unicodeToCode)
+    : null
+
   const patch = await doc.embedPng(edit.backgroundPatch.png)
   page.drawImage(patch, {
     x: edit.backgroundPatch.x,
@@ -135,54 +306,22 @@ export async function replaceTextRun(
     height: edit.backgroundPatch.height,
   })
 
-  let font
-  if (edit.fontData?.byteLength) {
-    try {
-      doc.registerFontkit(fontkit)
-      font = await doc.embedFont(edit.fontData, { subset: true })
-    } catch {
-      font = undefined
-    }
-  }
-  if (!font) {
-    const fallback = edit.fontBold
-      ? edit.fontItalic
-        ? StandardFonts.HelveticaBoldOblique
-        : StandardFonts.HelveticaBold
-      : edit.fontItalic
-        ? StandardFonts.HelveticaOblique
-        : StandardFonts.Helvetica
-    font = await doc.embedFont(fallback)
-  }
-
-  if (!edit.text) return
+  if (!encodedText) return
 
   const size = Math.max(4, Math.min(edit.fontSize, 144))
-  const rotation = degrees(edit.rotation)
   const radians = (edit.rotation * Math.PI) / 180
-  const direction = { x: Math.cos(radians), y: Math.sin(radians) }
-  let cursor = 0
-
-  // PDF.js-compiled subset fonts can intentionally map spaces to .notdef:
-  // original PDF content commonly positions words instead of drawing a space
-  // glyph. Draw words separately with the browser-measured gap so the exact
-  // embedded font remains usable without collapsing whitespace.
-  for (const token of edit.text.split(/(\s+)/)) {
-    if (!token) continue
-    if (/^\s+$/.test(token)) {
-      cursor += edit.spaceWidth * token.length
-      continue
-    }
-    page.drawText(token, {
-      x: edit.x + cursor * direction.x,
-      y: edit.y + cursor * direction.y,
-      size,
-      font,
-      color: rgb(...edit.color),
-      rotate: rotation,
-    })
-    cursor += font.widthOfTextAtSize(token, size)
-  }
+  const horizontalScale = Math.max(0.01, Math.min(edit.horizontalScale, 10))
+  page.pushOperators(
+    pushGraphicsState(),
+    beginText(),
+    setFillingColor(rgb(...edit.color)),
+    setFontAndSize(font.key, size),
+    setCharacterSqueeze(horizontalScale * 100),
+    rotateAndSkewTextRadiansAndTranslate(radians, 0, 0, edit.x, edit.y),
+    showText(encodedText),
+    endText(),
+    popGraphicsState(),
+  )
 }
 
 /** Removes pages (indices may be in any order). */

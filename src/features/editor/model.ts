@@ -34,13 +34,12 @@ export interface PdfTextEdit {
   width: number
   height: number
   fontSize: number
-  /** Width of one rendered space in PDF points for fonts without a space glyph. */
-  spaceWidth: number
+  /** Horizontal text scale from the PDF text matrix (1 is unscaled). */
+  horizontalScale: number
   rotation: number
   color: [number, number, number]
-  fontData?: Uint8Array
-  fontBold?: boolean
-  fontItalic?: boolean
+  /** Embedded PDF BaseFont name used to reuse the existing page resource. */
+  pdfFontName: string
   backgroundPatch: {
     png: Uint8Array
     x: number

@@ -35,7 +35,11 @@ export default function ToolsPage() {
                 <Link
                   key={tool.id}
                   className="tools-card"
-                  to={`/tools/${tool.id}`}
+                  to={
+                    tool.id === 'edit-text'
+                      ? '/workspace?tool=edit-text'
+                      : `/tools/${tool.id}`
+                  }
                 >
                   <span
                     className={`tools-icon tools-icon--${tool.tone}`}
