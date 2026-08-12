@@ -13,7 +13,10 @@ import { ScrollArea } from '@/components/layout'
 import type { LocalDocument } from '@/features/documents'
 import { downloadDocument } from '@/features/documents'
 import { PdfPageView } from './PdfPageView'
+import { PdfTextFormattingToolbar } from './PdfTextFormattingToolbar'
 import { PdfInfoModal } from './PdfInfoModal'
+import { registerBundledEditorFontFaces } from './text-format'
+import type { PdfTextFormat, PdfTextSelectionController } from './text-format'
 import { MAX_ZOOM, MIN_ZOOM, usePdfSession } from './PdfSessionProvider'
 import './pdf.css'
 
@@ -35,6 +38,7 @@ interface PdfPageSlotProps {
   unregisterPage: () => void
   textEditing: boolean
   onTextEdit: (edit: PdfTextEdit) => void
+  onTextSelectionChange: (selection: PdfTextSelectionController | null) => void
 }
 
 function PdfPageSlot({
@@ -46,6 +50,7 @@ function PdfPageSlot({
   unregisterPage,
   textEditing,
   onTextEdit,
+  onTextSelectionChange,
 }: PdfPageSlotProps) {
   const session = usePdfSession()
   const [page, setPage] = useState<PDFPageProxy | null>(null)
@@ -82,6 +87,7 @@ function PdfPageSlot({
           clearWhenHidden={session.numPages > 15}
           textEditing={textEditing}
           onTextEdit={onTextEdit}
+          onTextSelectionChange={onTextSelectionChange}
         />
       ) : (
         <div className="pdf-page-slot__placeholder" />
@@ -313,7 +319,50 @@ export function PdfViewer({ document }: PdfViewerProps) {
   })
   const [infoOpen, setInfoOpen] = useState(false)
   const requestedTextEditing = searchParams.get('tool') === 'edit-text'
-  const [textEditing, setTextEditing] = useState(requestedTextEditing)
+  const [textEditingState, setTextEditingState] = useState(() => ({
+    requested: requestedTextEditing,
+    active: requestedTextEditing,
+  }))
+  const [textSelection, setTextSelection] =
+    useState<PdfTextSelectionController | null>(null)
+  const textSelectionRef = useRef<PdfTextSelectionController | null>(null)
+
+  if (textEditingState.requested !== requestedTextEditing) {
+    setTextEditingState({
+      requested: requestedTextEditing,
+      active: requestedTextEditing,
+    })
+  }
+  const textEditing = textEditingState.active
+
+  useEffect(() => {
+    registerBundledEditorFontFaces()
+  }, [])
+
+  const handleTextSelectionChange = useCallback(
+    (selection: PdfTextSelectionController | null) => {
+      textSelectionRef.current = selection
+      setTextSelection(selection ? { ...selection } : null)
+    },
+    [],
+  )
+
+  const handleTextFormatChange = useCallback(
+    (changes: Partial<PdfTextFormat>) => {
+      const selection = textSelectionRef.current
+      if (!selection) return
+      selection.applyFormat(changes)
+    },
+    [],
+  )
+
+  const commitTextSelection = useCallback(() => {
+    textSelectionRef.current?.commit()
+  }, [])
+
+  const resetTextFormat = useCallback(() => {
+    textSelectionRef.current?.resetFormat()
+  }, [])
 
   const handleTextEdit = useCallback(
     (edit: PdfTextEdit) => {
@@ -459,8 +508,23 @@ export function PdfViewer({ document }: PdfViewerProps) {
         onOpenInfo={() => setInfoOpen(true)}
         textEditing={textEditing}
         canEditText={editor.status === 'ready' && !editor.busy}
-        onToggleTextEditing={() => setTextEditing((active) => !active)}
+        onToggleTextEditing={() => {
+          if (textEditing) textSelectionRef.current?.commit()
+          setTextEditingState((current) => ({
+            ...current,
+            active: !current.active,
+          }))
+        }}
       />
+
+      {textEditing ? (
+        <PdfTextFormattingToolbar
+          selection={textSelection}
+          onChange={handleTextFormatChange}
+          onReset={resetTextFormat}
+          onCommit={commitTextSelection}
+        />
+      ) : null}
 
       <ScrollArea
         ref={(element) => {
@@ -486,6 +550,7 @@ export function PdfViewer({ document }: PdfViewerProps) {
               }
               textEditing={textEditing}
               onTextEdit={handleTextEdit}
+              onTextSelectionChange={handleTextSelectionChange}
             />
           </div>
         ) : (
@@ -505,6 +570,7 @@ export function PdfViewer({ document }: PdfViewerProps) {
                 }
                 textEditing={textEditing}
                 onTextEdit={handleTextEdit}
+                onTextSelectionChange={handleTextSelectionChange}
               />
             ))}
           </div>

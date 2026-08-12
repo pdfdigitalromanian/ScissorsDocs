@@ -16,10 +16,15 @@ import {
   pushGraphicsState,
   rgb,
   rotateAndSkewTextRadiansAndTranslate,
+  setCharacterSpacing,
   setCharacterSqueeze,
   setFillingColor,
   setFontAndSize,
+  setLineWidth,
+  setStrokingColor,
+  setTextRenderingMode,
   showText,
+  TextRenderingMode,
 } from 'pdf-lib'
 import type {
   EditorPage,
@@ -29,6 +34,7 @@ import type {
   RotationDirection,
   SplitMode,
 } from './model'
+import { editorFontFaceFile } from '@/features/pdf/text-format'
 
 /** A4 portrait size in points, used for blank pages without a reference. */
 export const A4_SIZE = { width: 595.28, height: 841.89 }
@@ -111,6 +117,25 @@ function normalizeRotation(angle: number): PdfRotation {
 interface ExistingFontResource {
   key: PDFName
   unicodeToCode: Map<string, string>
+}
+
+const editorFontData = new Map<string, Promise<Uint8Array>>()
+
+async function loadEditorFont(path: string): Promise<Uint8Array> {
+  let pending = editorFontData.get(path)
+  if (!pending) {
+    pending = fetch(path).then(async (response) => {
+      if (!response.ok) {
+        throw new EditorPdfError(
+          `The selected font file could not be loaded (${response.status}).`,
+          'replace',
+        )
+      }
+      return new Uint8Array(await response.arrayBuffer())
+    })
+    editorFontData.set(path, pending)
+  }
+  return pending
 }
 
 function decodeUnicodeHex(hex: string): string {
@@ -271,9 +296,9 @@ export function rotatePages(
 /**
  * Replaces one extracted text run. The background patch comes from a PDF.js
  * render with text operators disabled, so images, gradients and line art stay
- * intact. The replacement reuses the page's existing composite-font resource
- * and its ToUnicode map, preserving the original embedded glyph program and
- * metrics without font substitution or fontkit re-encoding.
+ * intact. Original-font edits reuse the page's existing composite-font
+ * resource and ToUnicode map exactly. User-selected editor fonts are embedded
+ * as subsets so their real weight and italic faces survive download.
  */
 export async function replaceTextRun(
   doc: PDFDocument,
@@ -287,16 +312,40 @@ export async function replaceTextRun(
     )
   }
 
-  const font = findExistingFontResource(doc, page, edit.pdfFontName)
-  if (!font) {
-    throw new EditorPdfError(
-      'The original embedded PDF font resource could not be reused exactly, so no replacement was made.',
-      'unsupported',
+  let fontKey: PDFName
+  let encodedText: PDFHexString | null
+  let renderedWidth = Math.max(edit.renderedWidth, 0)
+  if (edit.fontFamily === 'original') {
+    const font = findExistingFontResource(doc, page, edit.pdfFontName)
+    if (!font) {
+      throw new EditorPdfError(
+        'The original embedded PDF font resource could not be reused exactly, so no replacement was made.',
+        'unsupported',
+      )
+    }
+    fontKey = font.key
+    encodedText = edit.text
+      ? encodeWithExistingFont(edit.text, font.unicodeToCode)
+      : null
+  } else {
+    const path = editorFontFaceFile(
+      edit.fontFamily,
+      edit.fontWeight,
+      edit.italic,
     )
+    const [{ default: fontkit }, bytes] = await Promise.all([
+      import('@pdf-lib/fontkit'),
+      loadEditorFont(path),
+    ])
+    doc.registerFontkit(fontkit)
+    const embedded = await doc.embedFont(bytes, { subset: true })
+    fontKey = page.node.newFontDictionary(embedded.name, embedded.ref)
+    encodedText = edit.text ? embedded.encodeText(edit.text) : null
+    renderedWidth =
+      (embedded.widthOfTextAtSize(edit.text, edit.fontSize) +
+        Math.max([...edit.text].length - 1, 0) * edit.letterSpacing) *
+      edit.horizontalScale
   }
-  const encodedText = edit.text
-    ? encodeWithExistingFont(edit.text, font.unicodeToCode)
-    : null
 
   const patch = await doc.embedPng(edit.backgroundPatch.png)
   page.drawImage(patch, {
@@ -311,17 +360,58 @@ export async function replaceTextRun(
   const size = Math.max(4, Math.min(edit.fontSize, 144))
   const radians = (edit.rotation * Math.PI) / 180
   const horizontalScale = Math.max(0.01, Math.min(edit.horizontalScale, 10))
+  const originalAlreadyBold = /(?:bold|black|heavy|semibold)/i.test(
+    edit.pdfFontName,
+  )
+  const originalAlreadyItalic = /(?:italic|oblique)/i.test(edit.pdfFontName)
+  const syntheticBold =
+    edit.fontFamily === 'original' &&
+    edit.fontWeight === 700 &&
+    !originalAlreadyBold
+  const syntheticItalic =
+    edit.fontFamily === 'original' && edit.italic && !originalAlreadyItalic
   page.pushOperators(
     pushGraphicsState(),
     beginText(),
     setFillingColor(rgb(...edit.color)),
-    setFontAndSize(font.key, size),
+    ...(syntheticBold
+      ? [
+          setStrokingColor(rgb(...edit.color)),
+          setLineWidth(Math.max(size * 0.025, 0.35)),
+          setTextRenderingMode(TextRenderingMode.FillAndOutline),
+        ]
+      : []),
+    setFontAndSize(fontKey, size),
+    setCharacterSpacing(edit.letterSpacing),
     setCharacterSqueeze(horizontalScale * 100),
-    rotateAndSkewTextRadiansAndTranslate(radians, 0, 0, edit.x, edit.y),
+    rotateAndSkewTextRadiansAndTranslate(
+      radians,
+      syntheticItalic ? (12 * Math.PI) / 180 : 0,
+      0,
+      edit.x,
+      edit.y,
+    ),
     showText(encodedText),
     endText(),
     popGraphicsState(),
   )
+
+  if (edit.underline && renderedWidth > 0) {
+    const offset = -size * 0.12
+    const start = {
+      x: edit.x - Math.sin(radians) * offset,
+      y: edit.y + Math.cos(radians) * offset,
+    }
+    page.drawLine({
+      start,
+      end: {
+        x: start.x + Math.cos(radians) * renderedWidth,
+        y: start.y + Math.sin(radians) * renderedWidth,
+      },
+      thickness: Math.max(size * 0.055, 0.5),
+      color: rgb(...edit.color),
+    })
+  }
 }
 
 /** Removes pages (indices may be in any order). */

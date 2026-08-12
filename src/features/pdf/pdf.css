@@ -101,6 +101,168 @@
   white-space: nowrap;
 }
 
+.pdf-format-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: var(--border-divider);
+  background-color: var(--color-surface-secondary);
+}
+
+.pdf-format-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.pdf-format-toolbar__status {
+  flex: 0 0 auto;
+  max-width: 12rem;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-format-toolbar__field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  min-height: var(--space-8);
+  border: var(--border-thin);
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+}
+
+.pdf-format-toolbar__field:focus-within {
+  border-color: var(--focus-ring-color);
+  box-shadow: 0 0 0 var(--focus-ring-width)
+    color-mix(in srgb, var(--focus-ring-color) 20%, transparent);
+}
+
+.pdf-format-toolbar__field select,
+.pdf-format-toolbar__field input {
+  min-height: calc(var(--space-8) - 2px);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+}
+
+.pdf-format-toolbar__field select {
+  padding-inline: var(--space-2) var(--space-7);
+}
+
+.pdf-format-toolbar__field--font select {
+  width: 10rem;
+}
+
+.pdf-format-toolbar__field--weight select {
+  width: 6.5rem;
+}
+
+.pdf-format-toolbar__field--number {
+  padding-inline: var(--space-2);
+}
+
+.pdf-format-toolbar__field--number input {
+  width: 3.5rem;
+  padding: 0;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-format-toolbar__field-label {
+  color: var(--color-text-muted);
+}
+
+.pdf-format-toolbar__toggle,
+.pdf-format-toolbar__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: var(--space-8);
+  border: var(--border-thin);
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.pdf-format-toolbar__toggle {
+  width: var(--space-8);
+  padding: 0;
+  font-family: Georgia, serif;
+  font-size: var(--text-body-m-size);
+}
+
+.pdf-format-toolbar__toggle--italic {
+  font-style: italic;
+}
+
+.pdf-format-toolbar__toggle--underline {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.pdf-format-toolbar__toggle[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-50);
+  color: var(--color-primary);
+}
+
+.pdf-format-toolbar__reset {
+  padding-inline: var(--space-3);
+  font-size: var(--text-caption-size);
+}
+
+.pdf-format-toolbar__toggle:hover:not(:disabled),
+.pdf-format-toolbar__reset:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.pdf-format-toolbar :disabled {
+  cursor: not-allowed;
+  opacity: var(--disabled-opacity);
+}
+
+.pdf-format-toolbar__color {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: var(--border-thin);
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+.pdf-format-toolbar__color input {
+  width: calc(100% + var(--space-2));
+  height: calc(100% + var(--space-2));
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
 .pdf-scroller {
   display: flex;
   flex: 1 1 0;

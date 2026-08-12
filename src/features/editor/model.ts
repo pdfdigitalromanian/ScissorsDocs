@@ -40,6 +40,15 @@ export interface PdfTextEdit {
   color: [number, number, number]
   /** Embedded PDF BaseFont name used to reuse the existing page resource. */
   pdfFontName: string
+  /** Original embedded face or one of the locally bundled editor fonts. */
+  fontFamily: import('@/features/pdf/text-format').PdfEditorFontFamily
+  fontWeight: import('@/features/pdf/text-format').PdfEditorFontWeight
+  italic: boolean
+  underline: boolean
+  /** Additional distance between glyphs, measured in PDF points. */
+  letterSpacing: number
+  /** Visual width after font, size and spacing changes, in PDF points. */
+  renderedWidth: number
   backgroundPatch: {
     png: Uint8Array
     x: number

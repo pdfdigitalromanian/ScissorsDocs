@@ -3,6 +3,7 @@ import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
 import type { PdfTextEdit } from '@/features/editor/model'
 import { pdfjs, renderPdfPageToCanvas } from './pdfjs'
 import { PdfTextEditLayer } from './PdfTextEditLayer'
+import type { PdfTextSelectionController } from './text-format'
 
 interface PdfPageViewProps {
   page: PDFPageProxy
@@ -15,6 +16,7 @@ interface PdfPageViewProps {
   clearWhenHidden?: boolean
   textEditing?: boolean
   onTextEdit?: (edit: PdfTextEdit) => void
+  onTextSelectionChange?: (selection: PdfTextSelectionController | null) => void
   className?: string
 }
 
@@ -28,11 +30,13 @@ function EditablePageLayers({
   scale,
   sourceCanvas,
   onTextEdit,
+  onTextSelectionChange,
 }: {
   page: PDFPageProxy
   scale: number
   sourceCanvas: HTMLCanvasElement
   onTextEdit: (edit: PdfTextEdit) => void
+  onTextSelectionChange: (selection: PdfTextSelectionController | null) => void
 }) {
   const [backgroundCanvas, setBackgroundCanvas] =
     useState<HTMLCanvasElement | null>(null)
@@ -95,6 +99,7 @@ function EditablePageLayers({
           sourceCanvas={sourceCanvas}
           backgroundCanvas={backgroundCanvas}
           onCommit={onTextEdit}
+          onSelectionChange={onTextSelectionChange}
         />
       ) : null}
     </>
@@ -115,6 +120,7 @@ export function PdfPageView({
   clearWhenHidden = false,
   textEditing = false,
   onTextEdit,
+  onTextSelectionChange,
   className = '',
 }: PdfPageViewProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -190,13 +196,19 @@ export function PdfPageView({
       style={{ width: viewport.width, height: viewport.height }}
     >
       <canvas ref={setCanvas} className="pdf-page__canvas" aria-hidden="true" />
-      {visible && textEditing && onTextEdit && canvasReady && canvas ? (
+      {visible &&
+      textEditing &&
+      onTextEdit &&
+      onTextSelectionChange &&
+      canvasReady &&
+      canvas ? (
         <EditablePageLayers
           key={renderKey}
           page={page}
           scale={scale}
           sourceCanvas={canvas}
           onTextEdit={onTextEdit}
+          onTextSelectionChange={onTextSelectionChange}
         />
       ) : null}
     </div>
