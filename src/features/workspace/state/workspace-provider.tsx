@@ -41,13 +41,11 @@ interface WorkspaceProviderProps {
 const initialPanels: Record<PanelId, PanelMode> = {
   left: PANEL_DEFAULTS.left.mode,
   inspector: PANEL_DEFAULTS.inspector.mode,
-  bottom: PANEL_DEFAULTS.bottom.mode,
 }
 
 const initialPanelSizes: Record<PanelId, number> = {
   left: PANEL_DEFAULTS.left.size,
   inspector: PANEL_DEFAULTS.inspector.size,
-  bottom: PANEL_DEFAULTS.bottom.size,
 }
 
 const initialFloatingRegions: Record<FloatingRegionId, boolean> = {
@@ -66,7 +64,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const { settings } = useSettings()
   const [panels, setPanels] = useState<Record<PanelId, PanelMode>>(() => ({
     ...initialPanels,
-    left: settings.viewer.showPagesPanel ? initialPanels.left : 'collapsed',
+    left: settings.viewer.showPagesPanel ? 'open' : 'collapsed',
   }))
   const [panelSizes, setPanelSizes] =
     useState<Record<PanelId, number>>(initialPanelSizes)

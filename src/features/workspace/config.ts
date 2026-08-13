@@ -12,7 +12,7 @@ export interface PanelConfig {
   orientation: ResizeDirection
   /**
    * Invert divider drag/keyboard direction. True for panels docked to the
-   * right or bottom so dragging the divider toward the panel grows it.
+   * right so dragging the divider toward the panel grows it.
    */
   invert?: boolean
   mode: PanelMode
@@ -25,7 +25,7 @@ export const PANEL_DEFAULTS: Record<PanelId, PanelConfig> = {
     min: 180,
     max: 480,
     orientation: 'horizontal',
-    mode: 'open',
+    mode: 'collapsed',
   },
   inspector: {
     label: 'Inspector',
@@ -33,15 +33,6 @@ export const PANEL_DEFAULTS: Record<PanelId, PanelConfig> = {
     min: 200,
     max: 520,
     orientation: 'horizontal',
-    invert: true,
-    mode: 'open',
-  },
-  bottom: {
-    label: 'Console',
-    size: 200,
-    min: 120,
-    max: 480,
-    orientation: 'vertical',
     invert: true,
     mode: 'collapsed',
   },

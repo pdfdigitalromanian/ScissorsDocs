@@ -12,6 +12,7 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { pdfjs } from './pdfjs'
 import { loadPdfSession, savePdfSession } from './pdf-session-store'
 import type { PdfSessionSnapshot } from './pdf-session-store'
+import type { PdfTextFormat, PdfTextSelectionController } from './text-format'
 import { useSettings } from '@/features/settings/SettingsProvider'
 
 export type PdfViewMode = 'continuous' | 'single'
@@ -67,6 +68,13 @@ interface PdfSessionValue {
   nextPage: () => void
   previousPage: () => void
   reportVisiblePage: (page: number) => void
+  textEditing: boolean
+  setTextEditing: (enabled: boolean) => void
+  textSelection: PdfTextSelectionController | null
+  setTextSelection: (selection: PdfTextSelectionController | null) => void
+  applyTextFormat: (changes: Partial<PdfTextFormat>) => void
+  commitTextSelection: () => void
+  resetTextFormat: () => void
 }
 
 const PdfSessionContext = createContext<PdfSessionValue | null>(null)
@@ -139,6 +147,15 @@ export function PdfSessionProvider({
   const [zoom, setZoomState] = useState(settings.viewer.zoom)
   const [rotation, setRotationState] = useState(0)
 
+  /* PDF text-edit mode is shared between the page viewer and the Inspector
+   * panel: the viewer creates the selection controller and the Inspector
+   * hosts the formatting toolbar. */
+  const [textEditing, setTextEditing] = useState(false)
+  const [textSelection, setTextSelectionState] =
+    useState<PdfTextSelectionController | null>(null)
+  const [formatRevision, setFormatRevision] = useState(0)
+  const textSelectionRef = useRef<PdfTextSelectionController | null>(null)
+
   const numPagesRef = useRef(0)
   const currentPageRef = useRef(1)
   const documentIdRef = useRef(documentId)
@@ -168,6 +185,8 @@ export function PdfSessionProvider({
       setModeState(settings.viewer.mode)
       setScrollTarget(null)
       setStatus('loading')
+      setTextEditing(false)
+      setTextSelectionState(null)
     }
   } else if (lastDocKey.seen || lastDocKey.id !== null) {
     setLastDocKey({ id: null, seen: false })
@@ -176,7 +195,15 @@ export function PdfSessionProvider({
     setInfo(null)
     setError(null)
     setStatus('idle')
+    setTextEditing(false)
+    setTextSelectionState(null)
   }
+
+  /* Drop any selection controller from a previous document once the new
+   * document is published. */
+  useEffect(() => {
+    textSelectionRef.current = null
+  }, [documentId])
 
   useEffect(() => {
     numPagesRef.current = numPages
@@ -403,6 +430,36 @@ export function PdfSessionProvider({
     setRotationState(0)
   }, [])
 
+  const handleTextSelectionChange = useCallback(
+    (selection: PdfTextSelectionController | null) => {
+      textSelectionRef.current = selection
+      setTextSelectionState(selection)
+    },
+    [],
+  )
+
+  const applyTextFormat = useCallback((changes: Partial<PdfTextFormat>) => {
+    textSelectionRef.current?.applyFormat(changes)
+    /* Bump a revision so consumers re-render with the mutated controller's
+     * current format (the controller updates in place). */
+    setFormatRevision((current) => current + 1)
+  }, [])
+
+  const commitTextSelection = useCallback(() => {
+    const selection = textSelectionRef.current
+    if (selection) {
+      selection.commit()
+      textSelectionRef.current = null
+    }
+    setTextSelectionState(null)
+    setFormatRevision((current) => current + 1)
+  }, [])
+
+  const resetTextFormat = useCallback(() => {
+    textSelectionRef.current?.resetFormat()
+    setFormatRevision((current) => current + 1)
+  }, [])
+
   const value = useMemo<PdfSessionValue>(
     () => ({
       status,
@@ -429,6 +486,14 @@ export function PdfSessionProvider({
       nextPage,
       previousPage,
       reportVisiblePage,
+      textEditing,
+      setTextEditing,
+      textSelection,
+      formatRevision,
+      setTextSelection: handleTextSelectionChange,
+      applyTextFormat,
+      commitTextSelection,
+      resetTextFormat,
     }),
     [
       status,
@@ -455,6 +520,14 @@ export function PdfSessionProvider({
       nextPage,
       previousPage,
       reportVisiblePage,
+      textEditing,
+      setTextEditing,
+      textSelection,
+      formatRevision,
+      handleTextSelectionChange,
+      applyTextFormat,
+      commitTextSelection,
+      resetTextFormat,
     ],
   )
 

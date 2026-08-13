@@ -13,19 +13,16 @@ import { PanelRegion } from './PanelRegion'
 const PANEL_SLOT: Record<PanelId, PanelSlot> = {
   left: 'panel-left',
   inspector: 'panel-right',
-  bottom: 'panel-bottom',
 }
 
 const COLLAPSE_ICON: Record<PanelId, IconName> = {
   left: 'chevron-left',
   inspector: 'chevron-right',
-  bottom: 'chevron-down',
 }
 
 const EXPAND_ICON: Record<PanelId, IconName> = {
   left: 'chevron-right',
   inspector: 'chevron-left',
-  bottom: 'chevron-up',
 }
 
 interface WorkspacePanelProps {
@@ -62,9 +59,8 @@ export function WorkspacePanel({ panel }: WorkspacePanelProps) {
     '--panel-size': `${size}px`,
   } as CSSProperties
 
-  const panelClasses = `workspace-panel workspace-panel--${panel}${
-    isHorizontal ? ' workspace-panel--horizontal' : ''
-  }`
+  const panelClasses = `workspace-panel workspace-panel--${panel}${isHorizontal ? ' workspace-panel--horizontal' : ''
+    }`
 
   if (mode === 'collapsed') {
     return (

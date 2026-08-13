@@ -13,13 +13,12 @@ import { RESERVED_REGIONS } from '../config'
 import { useWorkspace } from '../state/use-workspace'
 import { useWorkspaceShortcuts } from '../interaction/workspace-interactions'
 import { useWorkspacePersistence } from '../persistence/use-workspace-persistence'
-import { WorkspaceHeader } from './WorkspaceHeader'
-import { WorkspaceToolbar } from './WorkspaceToolbar'
 import { DocumentTabs } from './DocumentTabs'
 import { WorkspacePanel } from './WorkspacePanel'
 import { PanelResizeHandle } from './PanelResizeHandle'
 import { WorkspaceCanvas } from './WorkspaceCanvas'
 import { DocumentContainer } from './DocumentContainer'
+import { WorkspaceActionBar } from './WorkspaceActionBar'
 import { FloatingPanelRegion } from './FloatingPanelRegion'
 import { WorkspaceProvider } from '../state/workspace-provider'
 import '../workspace.css'
@@ -74,9 +73,9 @@ function EditorSessionHost({
 
   const sessionBlob =
     editingActive &&
-    stripped &&
-    stripped.documentId === documentId &&
-    stripped.version === editor.structuralVersion
+      stripped &&
+      stripped.documentId === documentId &&
+      stripped.version === editor.structuralVersion
       ? stripped.blob
       : editor.status === 'ready' && editor.blob
         ? editor.blob
@@ -143,8 +142,14 @@ function PdfSessionHost({ children }: { children: ReactNode }) {
   )
 }
 
-function WorkspaceAreaInner({ initialDocumentIds = [] }: WorkspaceAreaProps) {
+/** Runs the workspace shortcuts; must render inside PdfSessionHost so the
+ * editor undo/redo bindings can reach PdfEditorProvider. */
+function WorkspaceShortcuts() {
   useWorkspaceShortcuts()
+  return null
+}
+
+function WorkspaceAreaInner({ initialDocumentIds = [] }: WorkspaceAreaProps) {
   useWorkspacePersistence()
   const { panels, tabs, activeTab, openLocalDocuments } = useWorkspace()
   const { toast } = useToast()
@@ -234,19 +239,12 @@ function WorkspaceAreaInner({ initialDocumentIds = [] }: WorkspaceAreaProps) {
         }}
         onDrop={handleDrop}
       >
+        <WorkspaceShortcuts />
         {dragging && (
           <div className="workspace-area__drop" aria-hidden="true">
             {importing ? 'Importing…' : 'Drop to open in the workspace'}
           </div>
         )}
-        <div className="workspace-area__header">
-          <WorkspaceHeader />
-        </div>
-
-        <div className="workspace-area__toolbar">
-          <WorkspaceToolbar />
-        </div>
-
         {tabs.length > 0 && (
           <div className="workspace-area__tabs">
             <DocumentTabs />
@@ -274,14 +272,7 @@ function WorkspaceAreaInner({ initialDocumentIds = [] }: WorkspaceAreaProps) {
           )}
         </div>
 
-        {panels.bottom !== 'hidden' && (
-          <div className="workspace-area__bottom">
-            {panels.bottom === 'open' && (
-              <PanelResizeHandle panel="bottom" label="Resize bottom panel" />
-            )}
-            <WorkspacePanel panel="bottom" />
-          </div>
-        )}
+        <WorkspaceActionBar />
 
         {RESERVED_REGIONS.map((region) => {
           if (!region.floatingPlacement) return null
@@ -301,8 +292,9 @@ function WorkspaceAreaInner({ initialDocumentIds = [] }: WorkspaceAreaProps) {
 
 /**
  * WorkspaceArea is the self-contained workspace surface: header, toolbar,
- * document tabs, resizable panels, the document canvas and reserved floating
- * regions. It owns the workspace state and interaction framework.
+ * document tabs, resizable panels, the document canvas, a fixed bottom
+ * action bar for the active PDF, and reserved floating regions. It owns
+ * the workspace state and interaction framework.
  */
 export function WorkspaceArea({ initialDocumentIds }: WorkspaceAreaProps) {
   return (

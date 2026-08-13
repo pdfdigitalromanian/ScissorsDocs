@@ -85,8 +85,41 @@
 .editor-thumbnails__grid .pdf-thumbnail--selected,
 .editor-thumbnails__grid .pdf-thumbnail--selected:hover {
   border-color: var(--color-primary);
-  background-color: var(--color-primary-100);
   box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* Wraps each thumbnail so its hover-revealed move-up/move-down/delete
+   buttons can be absolutely positioned without nesting a button inside
+   the selectable thumbnail button (invalid HTML + broken a11y). */
+.editor-thumbnails__item {
+  position: relative;
+  display: flex;
+}
+
+.editor-thumbnails__item-actions {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  box-shadow: var(--elevation-1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast) var(--ease-standard);
+}
+
+.editor-thumbnails__item:hover .editor-thumbnails__item-actions,
+.editor-thumbnails__item:focus-within .editor-thumbnails__item-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.editor-thumbnails__item-actions .icon-button {
+  width: var(--space-7);
+  height: var(--space-7);
 }
 
 /* ------------------------------------------------------------------ *
@@ -135,6 +168,7 @@
 .editor-toolbar {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
   gap: var(--space-2);
   flex-shrink: 0;
@@ -152,7 +186,7 @@
   flex-shrink: 0;
 }
 
-.editor-toolbar__group + .editor-toolbar__group {
+.editor-toolbar__group+.editor-toolbar__group {
   padding-inline-start: var(--space-3);
   border-inline-start: var(--border-divider);
 }
@@ -345,6 +379,18 @@
   line-height: var(--text-caption-line-height);
 }
 
+.editor-inspector__empty-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-4);
+}
+
+.editor-inspector__empty-button {
+  width: 100%;
+}
+
 /* ------------------------------------------------------------------ *
  * ElementOverlay — pointer surface over one rendered page
  * ------------------------------------------------------------------ */
@@ -396,60 +442,61 @@
 
 .editor-element__handle {
   position: absolute;
-  width: var(--space-3);
-  height: var(--space-3);
-  border: 1px solid var(--color-border-strong);
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ffffff;
   border-radius: var(--radius-xs);
-  background-color: var(--color-surface);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
   pointer-events: auto;
 }
 
-.editor-element__handle--tl {
+.editor-element__handle--nw {
   top: -5px;
   inset-inline-start: -5px;
   cursor: nwse-resize;
 }
 
-.editor-element__handle--t {
+.editor-element__handle--n {
   top: -5px;
   left: 50%;
   transform: translateX(-50%);
   cursor: ns-resize;
 }
 
-.editor-element__handle--tr {
+.editor-element__handle--ne {
   top: -5px;
   inset-inline-end: -5px;
   cursor: nesw-resize;
 }
 
-.editor-element__handle--r {
+.editor-element__handle--e {
   top: 50%;
   inset-inline-end: -5px;
   transform: translateY(-50%);
   cursor: ew-resize;
 }
 
-.editor-element__handle--br {
+.editor-element__handle--se {
   bottom: -5px;
   inset-inline-end: -5px;
   cursor: nwse-resize;
 }
 
-.editor-element__handle--b {
+.editor-element__handle--s {
   bottom: -5px;
   left: 50%;
   transform: translateX(-50%);
   cursor: ns-resize;
 }
 
-.editor-element__handle--bl {
+.editor-element__handle--sw {
   bottom: -5px;
   inset-inline-start: -5px;
   cursor: nesw-resize;
 }
 
-.editor-element__handle--l {
+.editor-element__handle--w {
   top: 50%;
   inset-inline-start: -5px;
   transform: translateY(-50%);
@@ -458,15 +505,50 @@
 
 .editor-element__rotate-handle {
   position: absolute;
-  top: -20px;
+  top: -42px;
   left: 50%;
   transform: translateX(-50%);
-  width: var(--space-2);
-  height: var(--space-2);
-  border: 1px solid var(--color-primary);
+  width: 22px;
+  height: 22px;
+  border: 2px solid #ffffff;
   border-radius: var(--radius-circle);
-  background-color: var(--color-surface);
+  background-color: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  cursor: grab;
   pointer-events: auto;
+}
+
+.editor-element__rotate-handle::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 2px;
+  height: 22px;
+  transform: translateX(-50%);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
+}
+
+.editor-element__rotate-handle::after {
+  content: '↻';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+}
+
+.editor-element__rotate-handle:hover {
+  transform: translateX(-50%) scale(1.1);
+}
+
+.editor-element__rotate-handle:active {
+  cursor: grabbing;
 }
 
 .editor-element__text {
@@ -489,8 +571,9 @@
 
 .editor-element__shape {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: none;
   pointer-events: none;
   overflow: visible;
 }
@@ -567,4 +650,40 @@
 /* Counter-clockwise rotate icon */
 .editor-inspector__icon-flip {
   transform: scaleX(-1);
+}
+
+/* ------------------------------------------------------------------ *
+ * Text-format toolbar hosted inside the Inspector panel
+ * (the shared PDF text-edit controls moved out of the viewer).
+ * ------------------------------------------------------------------ */
+
+.editor-inspector>.pdf-format-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  overflow: visible;
+  border-bottom: var(--border-divider);
+}
+
+.editor-inspector>.pdf-format-toolbar .pdf-format-toolbar__status {
+  max-width: none;
+}
+
+.editor-inspector>.pdf-format-toolbar .pdf-format-toolbar__field {
+  width: 100%;
+}
+
+.editor-inspector>.pdf-format-toolbar .pdf-format-toolbar__field--font select,
+.editor-inspector>.pdf-format-toolbar .pdf-format-toolbar__field--weight select {
+  width: 100%;
+}
+
+.editor-inspector>.pdf-format-toolbar .pdf-format-toolbar__toggle,
+.editor-inspector>.pdf-format-toolbar .pdf-format-toolbar__reset {
+  flex: 1 1 0;
+}
+
+.editor-inspector>.pdf-format-toolbar .pdf-format-toolbar__color {
+  align-self: flex-start;
 }

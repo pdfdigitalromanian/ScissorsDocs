@@ -1,10 +1,6 @@
 import type { ReactNode } from 'react'
 import { Icon } from '@/components/icons/Icon'
-import IconButton from '@/components/ui/IconButton'
-import Button from '@/components/ui/Button'
-import { useToast } from '@/components/ui'
 import { LocalDocumentPreview } from '@/features/pdf'
-import { downloadDocument, downloadDocumentCopy } from '@/features/documents'
 import type { DocumentTab } from '../types'
 import { DOCUMENT_PANEL_ID, getTabElementId } from '../config'
 import { EmptyWorkspaceView } from './EmptyWorkspaceView'
@@ -18,36 +14,24 @@ interface DocumentContainerProps {
  * DocumentContainer is the tabbed surface for the active document. With no
  * active tab it renders the empty workspace view. Local documents render a
  * real preview; other sessions reserve the viewer slot.
+ *
+ * PDFs render "flush" (no card padding/max-width/border) so the PDF
+ * viewer's own toolbar and scroller can fill the entire workspace canvas
+ * edge-to-edge; other preview kinds keep the centered card treatment.
+ * This container has no header and no tools of its own — every
+ * document-level action (edit text, edit content, document info,
+ * download, page tools) lives in the workspace's fixed bottom action bar.
  */
 export function DocumentContainer({
   activeTab,
   children,
 }: DocumentContainerProps) {
-  const { toast } = useToast()
-
   if (!activeTab) {
     return <EmptyWorkspaceView />
   }
 
   const localDocument = activeTab.localDocument
-
-  async function handleSaveCopy() {
-    if (!localDocument) return
-    const error = await downloadDocumentCopy(localDocument.id)
-    if (error) {
-      toast({
-        title: 'Could not save a copy',
-        description: error,
-        variant: 'error',
-      })
-      return
-    }
-    toast({
-      title: 'Copy saved',
-      description: `${localDocument.name} was downloaded as a new copy.`,
-      variant: 'success',
-    })
-  }
+  const isPdf = localDocument?.kind === 'pdf'
 
   return (
     <div
@@ -55,34 +39,9 @@ export function DocumentContainer({
       role="tabpanel"
       aria-labelledby={getTabElementId(activeTab.id)}
       tabIndex={0}
-      className="document-container"
+      className={`document-container${isPdf ? ' document-container--flush' : ''
+        }`}
     >
-      <div className="document-container__header">
-        <h2 className="document-container__title">{activeTab.title}</h2>
-        {activeTab.subtitle && (
-          <span className="document-container__subtitle">
-            {activeTab.subtitle}
-          </span>
-        )}
-        {localDocument && (
-          <span className="document-container__actions">
-            <IconButton
-              icon="download"
-              label={`Download ${activeTab.title}`}
-              iconSize="sm"
-              onClick={() => void downloadDocument(localDocument.id)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleSaveCopy()}
-            >
-              <Icon name="copy" size="sm" aria-hidden="true" />
-              Save a copy
-            </Button>
-          </span>
-        )}
-      </div>
       <div className="document-container__surface">
         {localDocument ? (
           <LocalDocumentPreview document={localDocument} />

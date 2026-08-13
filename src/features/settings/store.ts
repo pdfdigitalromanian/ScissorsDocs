@@ -25,7 +25,7 @@ export const POINTS_PER_UNIT: Record<MeasurementUnit, number> = {
   pt: 1,
   in: 72,
   cm: 28.346456692913385,
-  mm: 2.8346456692913385,
+  mm: 72 / 25.4,
 }
 
 export interface TextDefaults {
@@ -74,9 +74,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   viewer: {
     mode: 'continuous',
-    fitMode: 'width',
+    fitMode: 'page',
     zoom: 1,
-    showPagesPanel: true,
+    showPagesPanel: false,
   },
   editor: {
     units: 'pt',

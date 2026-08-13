@@ -1,4 +1,4 @@
-export type PanelId = 'left' | 'inspector' | 'bottom'
+export type PanelId = 'left' | 'inspector'
 
 export type PanelMode = 'open' | 'collapsed' | 'hidden'
 
@@ -16,7 +16,7 @@ export type FloatingRegionId =
 import type { IconName } from '@/components/icons/Icon'
 import type { LocalDocument } from '@/features/documents'
 
-export type PanelSlot = 'panel-left' | 'panel-right' | 'panel-bottom'
+export type PanelSlot = 'panel-left' | 'panel-right'
 
 /** Lifecycle status of an open document session. */
 export type DocumentStatus = 'ready' | 'processing' | 'syncing'

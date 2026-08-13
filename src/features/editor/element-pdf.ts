@@ -535,6 +535,7 @@ function ellipsePath(x: number, y: number, width: number, height: number): PDFOp
   const cx = x + rx
   const cy = y + ry
   return [
+    moveTo(cx + rx, cy),
     appendBezierCurve(cx + rx, cy + k * ry, cx + k * rx, cy + ry, cx, cy + ry),
     appendBezierCurve(cx - k * rx, cy + ry, cx - rx, cy + k * ry, cx - rx, cy),
     appendBezierCurve(cx - rx, cy - k * ry, cx - k * rx, cy - ry, cx, cy - ry),

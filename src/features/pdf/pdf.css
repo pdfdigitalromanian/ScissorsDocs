@@ -12,17 +12,20 @@
 .pdf-viewer {
   display: flex;
   flex-direction: column;
-  min-height: var(--space-18);
-  height: calc(100dvh - var(--space-18));
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
   overflow: hidden;
   border: var(--border-thin);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
+  box-shadow: var(--elevation-1);
 }
 
 .pdf-toolbar {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   flex-shrink: 0;
   min-width: 0;
@@ -45,13 +48,19 @@
   flex-shrink: 0;
 }
 
-.pdf-toolbar__group + .pdf-toolbar__group {
+.pdf-toolbar__group+.pdf-toolbar__group {
   padding-inline-start: var(--space-3);
   border-inline-start: var(--border-divider);
 }
 
 .pdf-toolbar__group--end {
   margin-inline-start: auto;
+}
+
+.pdf-toolbar__group [aria-pressed='true'] {
+  background-color: var(--color-primary-50);
+  color: var(--color-primary);
+  border-radius: var(--radius-md);
 }
 
 .pdf-toolbar__pages {
@@ -147,8 +156,7 @@
 
 .pdf-format-toolbar__field:focus-within {
   border-color: var(--focus-ring-color);
-  box-shadow: 0 0 0 var(--focus-ring-width)
-    color-mix(in srgb, var(--focus-ring-color) 20%, transparent);
+  box-shadow: 0 0 0 var(--focus-ring-width) color-mix(in srgb, var(--focus-ring-color) 20%, transparent);
 }
 
 .pdf-format-toolbar__field select,
@@ -268,7 +276,9 @@
   flex: 1 1 0;
   min-width: 0;
   min-height: 0;
+  overflow-x: auto;
   overflow-y: auto;
+  scroll-behavior: smooth;
   background-color: var(--color-surface-secondary);
 }
 
@@ -351,15 +361,14 @@
   transform-origin: 0 0;
 }
 
-.pdf-text-edit-layer > span:not(.markedContent),
+.pdf-text-edit-layer>span:not(.markedContent),
 .pdf-text-edit-layer .markedContent span:not(.markedContent) {
   --font-height: 0;
   --scale-x: 1;
   --rotate: 0deg;
   z-index: 1;
   font-size: calc(var(--text-scale-factor) * var(--font-height));
-  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
-    scale(var(--min-font-size-inv));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
 }
 
 .pdf-text-edit-layer .markedContent {
@@ -393,27 +402,22 @@
 
 .pdf-text-edit-layer .pdf-text-edit-layer__item:hover {
   outline-color: var(--color-primary);
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--color-primary) 18%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
-.pdf-text-edit-layer
-  .pdf-text-edit-layer__item:focus:not(.pdf-text-edit-layer__item--changed),
-.pdf-text-edit-layer
-  .pdf-text-edit-layer__item--active:not(.pdf-text-edit-layer__item--changed) {
+.pdf-text-edit-layer .pdf-text-edit-layer__item:focus:not(.pdf-text-edit-layer__item--changed),
+.pdf-text-edit-layer .pdf-text-edit-layer__item--active:not(.pdf-text-edit-layer__item--changed) {
   color: transparent;
   background-color: transparent;
   outline-color: var(--color-primary);
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--color-primary) 18%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .pdf-text-edit-layer .pdf-text-edit-layer__item--changed {
   color: var(--pdf-text-color, #111827);
   background-color: transparent;
   outline-color: var(--color-primary);
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--color-primary) 18%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .pdf-text-edit-layer__item:focus-visible {
@@ -490,7 +494,6 @@
 
 .pdf-thumbnail--active {
   border-color: var(--color-primary);
-  background-color: var(--color-primary-100);
 }
 
 .pdf-thumbnail__frame {
@@ -661,8 +664,8 @@
  * ------------------------------------------------------------------ */
 
 @media (max-width: 1023px) {
-  .pdf-viewer {
-    height: calc(100dvh - var(--space-18));
+  .pdf-toolbar {
+    gap: var(--space-2);
   }
 }
 
@@ -691,5 +694,9 @@
 @media (prefers-reduced-motion: reduce) {
   .pdf-thumbnail {
     transition: none;
+  }
+
+  .pdf-scroller {
+    scroll-behavior: auto;
   }
 }

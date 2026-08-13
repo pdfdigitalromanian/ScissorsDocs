@@ -4,8 +4,6 @@ import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
 import { renderPdfPageToCanvas } from '@/features/pdf/pdfjs'
 import { PdfThumbnails, usePdfSession } from '@/features/pdf'
 import IconButton from '@/components/ui/IconButton'
-import { useToast } from '@/components/ui'
-import { downloadBlob } from '@/features/documents'
 import { computeReorder } from '../engine'
 import { usePdfEditor } from '../PdfEditorProvider'
 import { useSettings } from '@/features/settings/SettingsProvider'
@@ -140,7 +138,6 @@ interface ThumbDragState {
 export function EditorThumbnails() {
   const editor = usePdfEditor()
   const session = usePdfSession()
-  const { toast } = useToast()
   const { settings } = useSettings()
   const [dialog, setDialog] = useState<EditorDialogId | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -189,20 +186,6 @@ export function EditorThumbnails() {
     const pageNumber =
       editor.pages.find((page) => page.id === pageId)?.index ?? -1
     if (pageNumber >= 0) session.goToPage(pageNumber + 1)
-  }
-
-  const handleExtract = async () => {
-    const output = await editor.extractSelected()
-    if (!output) return
-    downloadBlob(
-      new Blob([output.bytes as BlobPart], { type: 'application/pdf' }),
-      output.name,
-    )
-    toast({
-      title: 'Pages extracted',
-      description: `${output.pageCount} page${output.pageCount === 1 ? '' : 's'} saved as "${output.name}".`,
-      variant: 'success',
-    })
   }
 
   function findScrollParent(element: HTMLElement | null): HTMLElement | null {
@@ -448,18 +431,6 @@ export function EditorThumbnails() {
             onClick={() => void editor.rotateSelected('counter-clockwise')}
           />
           <IconButton
-            icon="chevron-up"
-            label="Move pages up"
-            disabled={selectionDisabled}
-            onClick={() => void editor.moveSelectedBy(-1)}
-          />
-          <IconButton
-            icon="chevron-down"
-            label="Move pages down"
-            disabled={selectionDisabled}
-            onClick={() => void editor.moveSelectedBy(1)}
-          />
-          <IconButton
             icon="copy"
             label="Duplicate pages"
             disabled={selectionDisabled}
@@ -470,24 +441,6 @@ export function EditorThumbnails() {
             label="Delete pages"
             disabled={selectionDisabled}
             onClick={requestDeletePages}
-          />
-          <IconButton
-            icon="scissors"
-            label="Extract pages"
-            disabled={selectionDisabled}
-            onClick={() => void handleExtract()}
-          />
-          <IconButton
-            icon="split"
-            label="Split document"
-            disabled={busy}
-            onClick={() => setDialog('split')}
-          />
-          <IconButton
-            icon="merge"
-            label="Merge documents"
-            disabled={busy}
-            onClick={() => setDialog('merge')}
           />
         </div>
         {selectionCount > 0 && (
@@ -533,9 +486,8 @@ export function EditorThumbnails() {
       <ConfirmDialog
         open={confirmDelete}
         title="Delete selected pages?"
-        description={`${selectionCount} page${
-          selectionCount === 1 ? '' : 's'
-        } will be removed from the document.`}
+        description={`${selectionCount} page${selectionCount === 1 ? '' : 's'
+          } will be removed from the document.`}
         confirmLabel="Delete"
         onConfirm={() => {
           setConfirmDelete(false)

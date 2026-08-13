@@ -1,12 +1,12 @@
 /**
  * Workspace — WorkspaceArea, DocumentTabs, WorkspacePanel, resize handles,
- * document container and reserved regions.
+ * document container, the fixed bottom action bar and reserved regions.
  * Every visual value references a design token. Breakpoints are written
  * literally in media queries (see DESIGN_TOKENS.md §9).
  */
 
 /* ------------------------------------------------------------------ *
- * Workspace Area — grid of header, toolbar, tabs, main row and bottom
+ * Workspace Area — grid of tabs, main row and the fixed action bar
  * ------------------------------------------------------------------ */
 
 .workspace-area {
@@ -16,26 +16,13 @@
   min-width: 0;
   min-height: 0;
   grid-template-areas:
-    'header'
-    'toolbar'
     'tabs'
     'main'
     'bottom';
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   background-color: var(--color-background);
   animation: motion-fade-in var(--duration-page) var(--ease-out);
-}
-
-.workspace-area__header {
-  display: flex;
-  align-items: center;
-  grid-area: header;
-  min-width: 0;
-  min-height: var(--space-10);
-  padding-inline: var(--space-4);
-  background-color: var(--color-surface);
-  border-bottom: var(--border-divider);
 }
 
 .workspace-area__drop {
@@ -51,109 +38,6 @@
   pointer-events: none;
   background-color: color-mix(in srgb, var(--color-surface) 86%, transparent);
   border: 2px dashed var(--color-primary);
-}
-
-.workspace-area__toolbar {
-  display: flex;
-  align-items: center;
-  grid-area: toolbar;
-  min-width: 0;
-  height: var(--space-11);
-  padding-inline: var(--space-4);
-  overflow-x: auto;
-  scrollbar-width: none;
-  background-color: var(--color-surface);
-  border-bottom: var(--border-divider);
-}
-
-.workspace-area__toolbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* ------------------------------------------------------------------ *
- * Workspace Header — breadcrumb + active document identity
- * ------------------------------------------------------------------ */
-
-.workspace-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  width: 100%;
-  min-width: 0;
-}
-
-.workspace-header__breadcrumb {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.workspace-header__document {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.workspace-header__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: var(--space-7);
-  height: var(--space-7);
-  border-radius: var(--radius-md);
-  background-color: var(--color-primary-100);
-  color: var(--color-primary-600);
-}
-
-.workspace-header__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-body-m-size);
-  line-height: var(--text-body-m-line-height);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-heading);
-}
-
-.workspace-header__save {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex-shrink: 0;
-  font-size: var(--text-caption-size);
-  line-height: var(--text-caption-line-height);
-  font-weight: var(--text-caption-weight);
-  letter-spacing: var(--text-caption-letter-spacing);
-  color: var(--color-text-muted);
-}
-
-.workspace-header__actions {
-  flex-shrink: 0;
-}
-
-/* ------------------------------------------------------------------ *
- * Workspace Command Bar — document commands (Save, Zoom) and future
- * document tools that remain disabled until their editors exist
- * ------------------------------------------------------------------ */
-
-.workspace-command-bar {
-  flex-shrink: 0;
-}
-
-.workspace-command-bar__action:disabled {
-  opacity: var(--disabled-opacity);
-}
-
-.workspace-command-bar__trigger {
-  min-height: var(--space-8);
-  font-size: var(--text-button-size);
-  font-weight: var(--text-button-weight);
-  line-height: var(--text-button-line-height);
-  letter-spacing: var(--text-button-letter-spacing);
 }
 
 .workspace-area__tabs {
@@ -173,15 +57,8 @@
 }
 
 .workspace-area__stage {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-}
-
-.workspace-area__bottom {
   display: flex;
-  flex-direction: column;
-  grid-area: bottom;
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
 }
@@ -230,6 +107,11 @@
     background-color var(--transition-fast) var(--ease-standard),
     border-color var(--transition-fast) var(--ease-standard),
     color var(--transition-fast) var(--ease-standard);
+}
+
+.document-tab:hover:not(.document-tab--active) {
+  background-color: color-mix(in srgb, var(--color-surface) 60%, var(--color-surface-secondary));
+  border-color: var(--color-border-strong);
 }
 
 .document-tab--active {
@@ -349,6 +231,7 @@
 .panel-region--reserved {
   padding-block: var(--space-1) var(--space-2);
 }
+
 .panel-region--reserved .panel-region__hint {
   display: none;
 }
@@ -392,12 +275,6 @@
   outline: var(--focus-ring-width) solid var(--focus-ring-color);
 }
 
-.workspace-area__bottom .panel-resize-handle {
-  width: auto;
-  height: var(--space-2);
-  cursor: row-resize;
-}
-
 /* ------------------------------------------------------------------ *
  * Document Container — surface for the active document
  * ------------------------------------------------------------------ */
@@ -405,11 +282,9 @@
 .workspace-canvas {
   display: flex;
   flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-8);
+  padding: 0;
   background-color: var(--color-background);
 }
 
@@ -419,6 +294,8 @@
   gap: var(--space-4);
   margin: auto;
   width: 100%;
+  height: 100%;
+  min-height: 0;
   max-width: var(--container-lg);
   padding: var(--space-6);
   background-color: var(--color-surface);
@@ -427,30 +304,37 @@
   box-shadow: var(--elevation-1);
 }
 
+/* Used for documents (currently PDFs) whose own viewer wants the full
+   workspace canvas edge-to-edge — no card padding/max-width/border to
+   fight the viewer's own internal chrome and sizing. */
+.document-container--flush {
+  max-width: none;
+  height: 100%;
+  padding: 0;
+  gap: var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.document-container--flush .document-container__header {
+  padding-inline: var(--space-1);
+}
+
 .document-container__header {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
   padding-bottom: var(--space-3);
   border-bottom: var(--border-divider);
 }
 
-.document-container__title {
-  font-size: var(--text-heading-4-size);
-  line-height: var(--text-heading-4-line-height);
-  font-weight: var(--text-heading-4-weight);
-  letter-spacing: var(--text-heading-4-letter-spacing);
-  color: var(--color-heading);
-}
-
-.document-container__subtitle {
-  font-size: var(--text-body-s-size);
-  line-height: var(--text-body-s-line-height);
-  color: var(--color-text-muted);
-}
-
 .document-container__surface {
-  min-height: var(--space-18);
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .document-placeholder {
@@ -503,58 +387,33 @@
   background-color: var(--color-primary-700);
 }
 
-.empty-workspace__settings {
-  width: 100%;
-  max-width: calc(var(--space-18) * 2);
-  padding: var(--space-4);
-  border: var(--border-thin);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-surface-secondary);
-  text-align: start;
-}
+/* ------------------------------------------------------------------ *
+ * Workspace Action Bar — fixed bottom strip of document tool icons
+ * ------------------------------------------------------------------ */
 
-.empty-workspace__settings-row {
+.workspace-action-bar {
+  grid-area: bottom;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--space-11);
+  padding-inline: var(--space-3);
+  background-color: var(--color-surface);
+  border-top: var(--border-divider);
 }
 
-.empty-workspace__settings-copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
+.workspace-action-bar [aria-pressed='true'] {
+  background-color: var(--color-primary-50);
+  color: var(--color-primary);
+  border-radius: var(--radius-md);
 }
 
-.empty-workspace__settings-title {
-  font-size: var(--text-body-m-size);
-  line-height: var(--text-body-m-line-height);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-heading);
-}
-
-.empty-workspace__settings-hint {
+.workspace-action-bar__hint {
   font-size: var(--text-caption-size);
   line-height: var(--text-caption-line-height);
-  color: var(--color-text-muted);
-}
-
-.empty-workspace__settings-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  padding-block-start: var(--space-3);
-  margin-block-start: var(--space-3);
-  border-block-start: var(--border-divider);
-}
-
-.empty-workspace__clear {
-  color: var(--color-text-muted);
-}
-
-.empty-workspace__clear:hover {
-  color: var(--color-error);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------ *
@@ -579,9 +438,6 @@
  * ------------------------------------------------------------------ */
 
 @media (max-width: 1023px) {
-  .workspace-header__save {
-    display: none;
-  }
 
   .workspace-panel--left:not(.workspace-panel--collapsed),
   .workspace-panel--inspector:not(.workspace-panel--collapsed) {
@@ -614,35 +470,16 @@
  * ------------------------------------------------------------------ */
 
 @media (max-width: 767px) {
-  .workspace-area__header {
-    min-height: var(--space-9);
-    padding-inline: var(--space-3);
+  .document-tabs {
+    height: var(--space-9);
   }
 
-  .workspace-area__toolbar {
-    height: var(--space-10);
-    padding-inline: var(--space-3);
-  }
-
-  .workspace-header__breadcrumb
-    .breadcrumb__link:not(.breadcrumb__link--current) {
-    display: none;
-  }
-
-  .workspace-command-bar {
-    display: none;
-  }
-
-  .workspace-area__toolbar .toolbar__divider {
-    display: none;
-  }
-
-  .workspace-canvas {
+  .document-container {
     padding: var(--space-4);
   }
 
-  .document-tabs {
-    height: var(--space-9);
+  .document-container--flush {
+    padding: 0;
   }
 }
 
@@ -651,6 +488,7 @@
  * ------------------------------------------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {
+
   .document-tab,
   .panel-resize-handle {
     transition: none;

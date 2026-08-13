@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { KeyboardEvent, ReactNode } from 'react'
+import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { PDFPageProxy } from 'pdfjs-dist'
 import type { PdfTextEdit } from '@/features/editor/model'
@@ -12,13 +12,14 @@ import { Icon } from '@/components/icons/Icon'
 import { ScrollArea } from '@/components/layout'
 import type { LocalDocument } from '@/features/documents'
 import { downloadDocument } from '@/features/documents'
+import { FILE_INPUT_ACCEPT, ingestFiles } from '@/features/documents'
+import { useWorkspace } from '@/features/workspace/state/use-workspace'
 import { EditorPageSurface } from '@/features/editor/EditorPageSurface'
 import { EditorToolbar } from '@/features/editor/EditorToolbar'
 import { PdfPageView } from './PdfPageView'
-import { PdfTextFormattingToolbar } from './PdfTextFormattingToolbar'
 import { PdfInfoModal } from './PdfInfoModal'
 import { registerBundledEditorFontFaces } from './text-format'
-import type { PdfTextFormat, PdfTextSelectionController } from './text-format'
+import type { PdfTextSelectionController } from './text-format'
 import { MAX_ZOOM, MIN_ZOOM, usePdfSession } from './PdfSessionProvider'
 import './pdf.css'
 
@@ -29,6 +30,59 @@ function clamp(value: number, min: number, max: number): number {
 interface ContainerSize {
   width: number
   height: number
+}
+
+/**
+ * Padding around the page stack (`.pdf-pages` in pdf.css) that must be
+ * subtracted from the scroller's measured size, or a "fit" page overflows
+ * its container by exactly that padding and trips a scrollbar instead of
+ * actually fitting. Read live from the DOM instead of hardcoded so it
+ * stays correct across the mobile breakpoint, where the padding token
+ * shrinks — this is just the pre-measurement fallback.
+ */
+interface PageInsets {
+  x: number
+  y: number
+}
+
+const DEFAULT_PAGE_INSETS: PageInsets = { x: 24, y: 24 }
+
+/**
+ * How long we assume a programmatic scrollIntoView takes to settle when
+ * the browser doesn't support the 'scrollend' event. Smooth-scroll
+ * duration is browser-controlled, not distance-proportional in most
+ * engines, so this is a safe upper bound rather than a measured value.
+ */
+const NAVIGATE_SETTLE_FALLBACK_MS = 700
+
+/**
+ * Fit scale for the two automatic fit modes:
+ *  - 'width': page width exactly fills the container width (minus the
+ *    page stack's horizontal padding). Height is whatever it ends up
+ *    being; the scroller handles vertical overflow.
+ *  - 'page': the whole page fits inside the container in BOTH directions
+ *    at once (minus the page stack's padding on each axis) — the same
+ *    "fit page" behavior as iLovePDF/Acrobat. Whichever dimension is more
+ *    constraining (usually height for portrait pages, width for landscape
+ *    ones) determines the scale, so neither axis overflows or scrolls.
+ */
+function fitScale(
+  container: ContainerSize,
+  insets: PageInsets,
+  page: PDFPageProxy,
+  mode: 'width' | 'page',
+): number {
+  const base = page.getViewport({ scale: 1 })
+  const availableWidth = Math.max(container.width - insets.x, 1)
+
+  if (mode === 'width') {
+    return availableWidth / base.width
+  }
+
+  const availableHeight = Math.max(container.height - insets.y, 1)
+  const widthScale = availableWidth / base.width
+  const heightScale = availableHeight / base.height
+  return Math.min(widthScale, heightScale)
 }
 
 interface PdfPageSlotProps {
@@ -101,20 +155,85 @@ function PdfPageSlot({
   )
 }
 
+function OpenButton() {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
+  const { openLocalDocuments } = useWorkspace()
+  const [busy, setBusy] = useState(false)
+
+  async function handleFiles(files: File[]) {
+    if (files.length === 0) return
+    setBusy(true)
+    try {
+      const results = await ingestFiles(files)
+      const registered = results.filter((result) => result.document !== null)
+      const failed = results.filter((result) => result.error !== null)
+
+      if (failed.length > 0) {
+        toast({
+          title:
+            failed.length === 1
+              ? 'A file could not be opened'
+              : `${failed.length} files could not be opened`,
+          description: failed[0].error ?? 'The file could not be read.',
+          variant: 'error',
+        })
+      }
+
+      if (registered.length > 0) {
+        openLocalDocuments(registered.map((result) => result.document!))
+        if (registered.length > 1) {
+          toast({
+            title: 'Documents opened',
+            description: `${registered.length} documents were opened as workspace tabs.`,
+            variant: 'success',
+          })
+        }
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    event.target.value = ''
+    void handleFiles(files)
+  }
+
+  return (
+    <>
+      <IconButton
+        icon="folder-open"
+        label={busy ? 'Opening…' : 'Open a file'}
+        iconSize="sm"
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
+      />
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept={FILE_INPUT_ACCEPT}
+        className="visually-hidden"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={handleFileChange}
+      />
+    </>
+  )
+}
+
 function PdfToolbar({
   document,
   containerSize,
+  pageInsets,
   onOpenInfo,
-  textEditing,
-  canEditText,
-  onToggleTextEditing,
 }: {
   document: LocalDocument
   containerSize: ContainerSize
+  pageInsets: PageInsets
   onOpenInfo: () => void
-  textEditing: boolean
-  canEditText: boolean
-  onToggleTextEditing: () => void
 }) {
   const session = usePdfSession()
   const { toast } = useToast()
@@ -134,22 +253,14 @@ function PdfToolbar({
       .getPage(session.currentPage)
       .then((page) => {
         if (cancelled) return
-        const base = page.getViewport({ scale: 1 })
         if (session.fitMode === 'manual') {
           setDisplayScale(session.zoom)
           return
         }
         if (containerSize.width <= 0) return
-        const widthScale = containerSize.width / base.width
-        if (session.fitMode === 'width') {
-          setDisplayScale(widthScale)
-          return
-        }
-        const heightScale =
-          containerSize.height > 0
-            ? containerSize.height / base.height
-            : widthScale
-        setDisplayScale(Math.min(widthScale, heightScale))
+        setDisplayScale(
+          fitScale(containerSize, pageInsets, page, session.fitMode),
+        )
       })
       .catch(() => undefined)
     return () => {
@@ -162,6 +273,7 @@ function PdfToolbar({
     session.fitMode,
     session.zoom,
     containerSize,
+    pageInsets,
   ])
 
   function commitPageInput() {
@@ -214,22 +326,6 @@ function PdfToolbar({
 
       <div className="pdf-toolbar__group">
         <IconButton
-          icon="edit"
-          label={textEditing ? 'Stop editing text' : 'Edit text'}
-          iconSize="sm"
-          aria-pressed={textEditing}
-          disabled={!canEditText}
-          onClick={onToggleTextEditing}
-        />
-        {textEditing ? (
-          <span className="pdf-toolbar__edit-status" aria-live="polite">
-            Click text to edit
-          </span>
-        ) : null}
-      </div>
-
-      <div className="pdf-toolbar__group">
-        <IconButton
           icon="zoom-out"
           label="Zoom out"
           iconSize="sm"
@@ -248,41 +344,34 @@ function PdfToolbar({
 
       <div className="pdf-toolbar__group">
         <IconButton
-          icon="fit-width"
-          label="Fit to width"
+          icon={session.fitMode === 'page' ? 'fit-width' : 'fit-page'}
+          label={session.fitMode === 'page' ? 'Fit to width' : 'Fit to page'}
           iconSize="sm"
-          aria-pressed={session.fitMode === 'width'}
-          onClick={() => session.setFitMode('width')}
-        />
-        <IconButton
-          icon="fit-page"
-          label="Fit to page"
-          iconSize="sm"
-          aria-pressed={session.fitMode === 'page'}
-          onClick={() => session.setFitMode('page')}
+          onClick={() =>
+            session.setFitMode(session.fitMode === 'page' ? 'width' : 'page')
+          }
         />
       </div>
 
       <div className="pdf-toolbar__group">
         <IconButton
-          icon="rows"
-          label="Continuous scroll"
+          icon={session.mode === 'continuous' ? 'page' : 'rows'}
+          label={
+            session.mode === 'continuous'
+              ? 'Switch to single page view'
+              : 'Switch to continuous scroll'
+          }
           iconSize="sm"
-          aria-pressed={session.mode === 'continuous'}
-          onClick={() => session.setMode('continuous')}
-        />
-        <IconButton
-          icon="page"
-          label="Single page"
-          iconSize="sm"
-          aria-pressed={session.mode === 'single'}
-          onClick={() => session.setMode('single')}
+          onClick={() =>
+            session.setMode(
+              session.mode === 'continuous' ? 'single' : 'continuous',
+            )
+          }
         />
       </div>
 
-      <div className="pdf-toolbar__group pdf-toolbar__group--end">
-        <SaveButton />
-        <EditorToggle />
+      <div className="pdf-toolbar__group">
+        <OpenButton />
         <IconButton
           icon="info"
           label="Document information"
@@ -296,20 +385,11 @@ function PdfToolbar({
           onClick={() => void handleDownload()}
         />
       </div>
-    </div>
-  )
-}
 
-function EditorToggle() {
-  const { editMode, setEditMode } = usePdfEditor()
-  return (
-    <IconButton
-      icon="edit"
-      label={editMode ? 'Exit edit mode' : 'Edit content'}
-      iconSize="sm"
-      aria-pressed={editMode}
-      onClick={() => setEditMode(!editMode)}
-    />
+      <div className="pdf-toolbar__group">
+        <SaveButton />
+      </div>
+    </div>
   )
 }
 
@@ -348,16 +428,20 @@ interface PdfViewerProps {
 
 /**
  * PdfViewer is the real local PDF engine surface: an accessible toolbar
- * (page navigation, zoom, fit modes, view mode), a lazy page scroller and
- * document information. It consumes the shared PDF session so the
- * thumbnail panel stays in sync.
+ * (page navigation, zoom, fit, view mode, document information, download)
+ * and a lazy page scroller. Edit text, edit content and the page tools
+ * live in the document action bar instead (see WorkspaceActionBar). It
+ * consumes the shared PDF session so the thumbnail panel stays in sync.
  */
 export function PdfViewer({ document }: PdfViewerProps) {
   const [searchParams] = useSearchParams()
   const session = usePdfSession()
   const editor = usePdfEditor()
   const { toast } = useToast()
-  const scrollerRef = useRef<HTMLDivElement>(null)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const pagesRef = useRef<HTMLDivElement | null>(null)
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
   const [scrollerElement, setScrollerElement] = useState<HTMLDivElement | null>(
     null,
   )
@@ -366,51 +450,34 @@ export function PdfViewer({ document }: PdfViewerProps) {
     width: 0,
     height: 0,
   })
-  const [infoOpen, setInfoOpen] = useState(false)
+  const [pageInsets, setPageInsets] = useState<PageInsets>(DEFAULT_PAGE_INSETS)
   const requestedTextEditing = searchParams.get('tool') === 'edit-text'
-  const [textEditingState, setTextEditingState] = useState(() => ({
-    requested: requestedTextEditing,
-    active: requestedTextEditing,
-  }))
-  const [textSelection, setTextSelection] =
-    useState<PdfTextSelectionController | null>(null)
-  const textSelectionRef = useRef<PdfTextSelectionController | null>(null)
+  const { textEditing, setTextEditing, reportVisiblePage } = usePdfSession()
 
-  if (textEditingState.requested !== requestedTextEditing) {
-    setTextEditingState({
-      requested: requestedTextEditing,
-      active: requestedTextEditing,
-    })
-  }
-  const textEditing = textEditingState.active
+  /**
+   * True while a click-triggered scrollIntoView (from goToPage/next/
+   * previous) is still animating. While this is set, the per-page
+   * IntersectionObserver's "visible" reports are ignored — otherwise the
+   * observer fires for every page scrolled *past* during the smooth-
+   * scroll animation, and whichever fires last (not necessarily the
+   * actual clicked target) silently overwrites currentPage. This is what
+   * caused clicking "page 2" to sometimes land the UI on page 3 or 4.
+   */
+  const navigatingRef = useRef(false)
+  const navigateTimeoutRef = useRef<number | null>(null)
+
+  /* The URL may carry ?tool=edit-text (deep link into text mode). Sync the
+   * session flag when that param changes, but never fight the user's own
+   * toggle once they turn editing off. */
+  const lastRequestedEditingRef = useRef(requestedTextEditing)
+  useEffect(() => {
+    if (lastRequestedEditingRef.current === requestedTextEditing) return
+    lastRequestedEditingRef.current = requestedTextEditing
+    setTextEditing(requestedTextEditing)
+  }, [requestedTextEditing, setTextEditing])
 
   useEffect(() => {
     registerBundledEditorFontFaces()
-  }, [])
-
-  const handleTextSelectionChange = useCallback(
-    (selection: PdfTextSelectionController | null) => {
-      textSelectionRef.current = selection
-      setTextSelection(selection ? { ...selection } : null)
-    },
-    [],
-  )
-
-  const handleTextFormatChange = useCallback(
-    (changes: Partial<PdfTextFormat>) => {
-      const selection = textSelectionRef.current
-      if (!selection) return
-      selection.applyFormat(changes)
-    },
-    [],
-  )
-
-  const commitTextSelection = useCallback(() => {
-    textSelectionRef.current?.commit()
-  }, [])
-
-  const resetTextFormat = useCallback(() => {
-    textSelectionRef.current?.resetFormat()
   }, [])
 
   const handleTextEdit = useCallback(
@@ -429,45 +496,142 @@ export function PdfViewer({ document }: PdfViewerProps) {
     [editor, toast],
   )
 
-  useEffect(() => {
+  /**
+   * Measures the scroller's visible size and the page stack's own padding
+   * directly from the DOM. Reading the padding live (instead of assuming a
+   * fixed pixel value) keeps fit-to-width/fit-to-page accurate across the
+   * mobile breakpoint, where `.pdf-pages` padding shrinks.
+   */
+  const measure = useCallback(() => {
     const scroller = scrollerRef.current
-    if (!scroller) return
-    const measure = () => {
+    if (scroller) {
       setContainerSize({
         width: scroller.clientWidth,
         height: scroller.clientHeight,
       })
     }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(scroller)
-    return () => observer.disconnect()
+    const pages = pagesRef.current
+    if (pages) {
+      const style = window.getComputedStyle(pages)
+      const x =
+        Number.parseFloat(style.paddingLeft) +
+        Number.parseFloat(style.paddingRight)
+      const y =
+        Number.parseFloat(style.paddingTop) +
+        Number.parseFloat(style.paddingBottom)
+      setPageInsets({
+        x: Number.isFinite(x) ? x : DEFAULT_PAGE_INSETS.x,
+        y: Number.isFinite(y) ? y : DEFAULT_PAGE_INSETS.y,
+      })
+    }
+  }, [])
+
+  /**
+   * Attaches the resize observer through a callback ref instead of a
+   * mount-time effect. The scroller only exists once the PDF has finished
+   * loading, and this component stays mounted across that loading → ready
+   * transition (it's keyed by document id, not by session status). An
+   * effect with an empty dependency array runs before the scroller exists
+   * and never re-attaches once it does — that left containerSize stuck at
+   * 0 forever and every "fit" mode silently falling back to 100% scale.
+   * A callback ref fires exactly when the real DOM node mounts, so this
+   * works regardless of what triggered the render that produced it.
+   */
+  const attachScroller = useCallback(
+    (element: HTMLDivElement | null) => {
+      scrollerRef.current = element
+      setScrollerElement(element)
+      resizeObserverRef.current?.disconnect()
+      resizeObserverRef.current = null
+      if (!element) return
+      measure()
+      const observer = new ResizeObserver(measure)
+      observer.observe(element)
+      resizeObserverRef.current = observer
+    },
+    [measure],
+  )
+
+  const attachPages = useCallback(
+    (element: HTMLDivElement | null) => {
+      pagesRef.current = element
+      if (element) measure()
+    },
+    [measure],
+  )
+
+  useEffect(() => {
+    return () => {
+      resizeObserverRef.current?.disconnect()
+      resizeObserverRef.current = null
+      if (navigateTimeoutRef.current !== null) {
+        window.clearTimeout(navigateTimeoutRef.current)
+      }
+    }
   }, [])
 
   useEffect(() => {
     if (!session.scrollTarget || session.mode !== 'continuous') return
     const target = pageElementsRef.current.get(session.scrollTarget.page)
-    if (target) target.scrollIntoView({ block: 'start' })
+    if (!target) return
+
+    navigatingRef.current = true
+    if (navigateTimeoutRef.current !== null) {
+      window.clearTimeout(navigateTimeoutRef.current)
+      navigateTimeoutRef.current = null
+    }
+
+    const scroller = scrollerRef.current
+    const supportsScrollEnd = Boolean(scroller && 'onscrollend' in scroller)
+
+    const clearNavigating = () => {
+      navigatingRef.current = false
+      if (navigateTimeoutRef.current !== null) {
+        window.clearTimeout(navigateTimeoutRef.current)
+        navigateTimeoutRef.current = null
+      }
+      scroller?.removeEventListener('scrollend', clearNavigating)
+    }
+
+    if (supportsScrollEnd) {
+      scroller?.addEventListener('scrollend', clearNavigating, { once: true })
+    }
+    /* Fallback for browsers without 'scrollend', and a safety net in case
+     * the target was already in view (scrollend then never fires). */
+    navigateTimeoutRef.current = window.setTimeout(
+      clearNavigating,
+      NAVIGATE_SETTLE_FALLBACK_MS,
+    )
+
+    target.scrollIntoView({ block: 'start' })
+
+    return () => {
+      scroller?.removeEventListener('scrollend', clearNavigating)
+    }
   }, [session.scrollTarget, session.mode])
+
+  /** Ignores intersection-based page reports while a click navigation is
+   * still animating — see `navigatingRef` above. */
+  const handlePageVisible = useCallback(
+    (page: number) => {
+      if (navigatingRef.current) return
+      reportVisiblePage(page)
+    },
+    [reportVisiblePage],
+  )
 
   const scaleFor = useCallback(
     (page: PDFPageProxy): number => {
-      const base = page.getViewport({ scale: 1 })
       if (session.fitMode === 'manual') {
         return clamp(session.zoom, MIN_ZOOM, MAX_ZOOM)
       }
-      if (containerSize.width <= 0) return 1
-      const widthScale = containerSize.width / base.width
-      if (session.fitMode === 'width') {
-        return clamp(widthScale, MIN_ZOOM, MAX_ZOOM)
-      }
-      const heightScale =
-        containerSize.height > 0
-          ? containerSize.height / base.height
-          : widthScale
-      return clamp(Math.min(widthScale, heightScale), MIN_ZOOM, MAX_ZOOM)
+      if (containerSize.width <= 0 || containerSize.height <= 0) return 1
+      /* Fit scales are NOT clamped to the manual zoom range — clamping
+         overflowed large pages (a fitting scale below MIN_ZOOM was pinned
+         to 0.25, so the page never fit its container). */
+      return fitScale(containerSize, pageInsets, page, session.fitMode)
     },
-    [session.fitMode, session.zoom, containerSize],
+    [session.fitMode, session.zoom, containerSize, pageInsets],
   )
 
   const { editMode } = usePdfEditor()
@@ -576,40 +740,20 @@ export function PdfViewer({ document }: PdfViewerProps) {
       <PdfToolbar
         document={document}
         containerSize={containerSize}
+        pageInsets={pageInsets}
         onOpenInfo={() => setInfoOpen(true)}
-        textEditing={textEditing}
-        canEditText={editor.status === 'ready' && !editor.busy}
-        onToggleTextEditing={() => {
-          if (textEditing) textSelectionRef.current?.commit()
-          setTextEditingState((current) => ({
-            ...current,
-            active: !current.active,
-          }))
-        }}
       />
-
-      {textEditing ? (
-        <PdfTextFormattingToolbar
-          selection={textSelection}
-          onChange={handleTextFormatChange}
-          onReset={resetTextFormat}
-          onCommit={commitTextSelection}
-        />
-      ) : null}
 
       {editMode && <EditorToolbar />}
 
       <ScrollArea
-        ref={(element) => {
-          scrollerRef.current = element
-          setScrollerElement(element)
-        }}
+        ref={attachScroller}
         ariaLabel="PDF pages"
         className="pdf-scroller"
         onKeyDown={handleKeyDown}
       >
         {session.mode === 'single' ? (
-          <div className="pdf-pages pdf-pages--single">
+          <div className="pdf-pages pdf-pages--single" ref={attachPages}>
             <PdfPageSlot
               key={session.currentPage}
               pageNumber={session.currentPage}
@@ -624,18 +768,18 @@ export function PdfViewer({ document }: PdfViewerProps) {
               }
               textEditing={textEditing}
               onTextEdit={handleTextEdit}
-              onTextSelectionChange={handleTextSelectionChange}
+              onTextSelectionChange={session.setTextSelection}
             />
           </div>
         ) : (
-          <div className="pdf-pages pdf-pages--continuous">
+          <div className="pdf-pages pdf-pages--continuous" ref={attachPages}>
             {pageNumbers.map((pageNumber) => (
               <PdfPageSlot
                 key={pageNumber}
                 pageNumber={pageNumber}
                 scaleFor={scaleFor}
                 root={scrollerElement}
-                onVisible={session.reportVisiblePage}
+                onVisible={handlePageVisible}
                 overlay={renderEditorOverlay}
                 registerPage={(element) =>
                   pageElementsRef.current.set(pageNumber, element)
@@ -645,13 +789,12 @@ export function PdfViewer({ document }: PdfViewerProps) {
                 }
                 textEditing={textEditing}
                 onTextEdit={handleTextEdit}
-                onTextSelectionChange={handleTextSelectionChange}
+                onTextSelectionChange={session.setTextSelection}
               />
             ))}
           </div>
         )}
       </ScrollArea>
-
       <PdfInfoModal
         open={infoOpen}
         onClose={() => setInfoOpen(false)}

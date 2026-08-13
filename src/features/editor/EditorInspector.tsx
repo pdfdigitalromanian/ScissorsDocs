@@ -10,6 +10,7 @@
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import Button from '@/components/ui/Button'
 import IconButton from '@/components/ui/IconButton'
 import { Icon } from '@/components/icons/Icon'
 import type { IconName } from '@/components/icons/Icon'
@@ -26,6 +27,8 @@ import type { FontFamily, PdfElement, TextAlign } from './elements'
 import type { EditorPage } from './model'
 import { usePdfEditor } from './PdfEditorProvider'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { PdfTextFormattingToolbar } from '@/features/pdf/PdfTextFormattingToolbar'
+import { usePdfSession } from '@/features/pdf/PdfSessionProvider'
 import './editor.css'
 
 const ALIGNMENTS: Array<{ value: TextAlign; icon: IconName; label: string }> = [
@@ -93,16 +96,21 @@ function InspectorEmpty({
   icon,
   title,
   hint,
+  actions,
 }: {
   icon: IconName
   title: string
   hint: string
+  actions?: ReactNode
 }) {
   return (
     <div className="editor-inspector__empty">
       <Icon name={icon} size="lg" />
       <p className="editor-inspector__empty-title">{title}</p>
       <p className="editor-inspector__empty-hint">{hint}</p>
+      {actions && (
+        <div className="editor-inspector__empty-actions">{actions}</div>
+      )}
     </div>
   )
 }
@@ -297,22 +305,6 @@ function ArrangeSection({
         <button
           type="button"
           className="editor-inspector__button"
-          onClick={() => void moveElementToLayer(elementId, 'forward')}
-        >
-          Forward
-        </button>
-        <button
-          type="button"
-          className="editor-inspector__button"
-          onClick={() => void moveElementToLayer(elementId, 'backward')}
-        >
-          Backward
-        </button>
-      </div>
-      <div className="editor-inspector__row">
-        <button
-          type="button"
-          className="editor-inspector__button"
           onClick={() => void moveElementToLayer(elementId, 'front')}
         >
           To front
@@ -401,7 +393,7 @@ function PageInspector({ page }: { page: EditorPage }) {
   }
 
   return (
-    <div className="editor-inspector">
+    <>
       <p className="editor-inspector__summary">
         Page {pageNumber} · {formatValue(convertPtToUnit(page.width, units))}×
         {formatValue(convertPtToUnit(page.height, units))}
@@ -530,13 +522,14 @@ function PageInspector({ page }: { page: EditorPage }) {
         }}
         onClose={() => setConfirmDelete(false)}
       />
-    </div>
+    </>
   )
 }
 
 export function EditorInspector() {
   const {
     editMode,
+    setEditMode,
     elements,
     selectedElementIds,
     selectedPageIds,
@@ -547,6 +540,7 @@ export function EditorInspector() {
     clearElementSelection,
   } = usePdfEditor()
   const { settings } = useSettings()
+  const session = usePdfSession()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const units = settings.editor.units
@@ -567,264 +561,312 @@ export function EditorInspector() {
     void updateElement(id, patch)
   }
 
+  const textFormattingToolbar = session.textEditing ? (
+    <PdfTextFormattingToolbar
+      selection={session.textSelection}
+      onChange={session.applyTextFormat}
+      onReset={session.resetTextFormat}
+      onCommit={session.commitTextSelection}
+    />
+  ) : null
+
+  let body: ReactNode
+
   if (!editMode) {
-    return (
-      <div className="editor-inspector">
-        <InspectorEmpty
-          icon="edit"
-          title="Not editing"
-          hint="Turn on Edit content to select and modify objects on the page."
-        />
-      </div>
+    const editingText = session.textEditing
+    body = (
+      <InspectorEmpty
+        icon={editingText ? 'text' : 'edit'}
+        title={editingText ? 'Editing PDF text' : 'Not editing'}
+        hint={
+          editingText
+            ? 'Click any text on the page to edit it, or select formatted text to change its properties above.'
+            : 'Turn on Edit content to select and modify objects on the page.'
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              className="editor-inspector__empty-button"
+              aria-pressed={editingText}
+              onClick={() => {
+                if (editingText) {
+                  session.commitTextSelection()
+                  session.setTextEditing(false)
+                } else {
+                  setEditMode(false)
+                  session.setTextEditing(true)
+                }
+              }}
+            >
+              Edit text
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="editor-inspector__empty-button"
+              disabled={editingText}
+              onClick={() => {
+                session.setTextEditing(false)
+                setEditMode(true)
+              }}
+            >
+              Edit content
+            </Button>
+          </>
+        }
+      />
     )
-  }
+  } else if (!single && singlePage) {
+    body = <PageInspector page={singlePage} />
+  } else if (!single) {
+    body = (
+      <InspectorEmpty
+        icon="pointer"
+        title={
+          selectedElements.length > 0
+            ? `${selectedElements.length} objects selected`
+            : 'Nothing selected'
+        }
+        hint={
+          selectedElements.length > 0
+            ? 'Select a single object to edit its properties.'
+            : 'Select an object on the page, or a page in the Pages panel, to edit its properties here.'
+        }
+      />
+    )
+  } else {
+    body = (
+      <>
+        <p className="editor-inspector__summary">
+          {single.type === 'text'
+            ? 'Text'
+            : single.type === 'image'
+              ? 'Image'
+              : 'Shape'}
+          {' · '}
+          {formatValue(convertPtToUnit(single.x, units))}×
+          {formatValue(convertPtToUnit(single.y, units))}
+          {UNIT_SUFFIX[units]}
+        </p>
 
-  if (!single && singlePage) {
-    return <PageInspector page={singlePage} />
-  }
-
-  if (!single) {
-    return (
-      <div className="editor-inspector">
-        <InspectorEmpty
-          icon="pointer"
-          title={
-            selectedElements.length > 0
-              ? `${selectedElements.length} objects selected`
-              : 'Nothing selected'
-          }
-          hint={
-            selectedElements.length > 0
-              ? 'Select a single object to edit its properties.'
-              : 'Select an object on the page, or a page in the Pages panel, to edit its properties here.'
-          }
+        <PositionSizeSection
+          element={single}
+          units={units}
+          onPatch={(elementPatch) => patch(single.id, elementPatch)}
         />
-      </div>
+
+        {selectedText && (
+          <Section title="Text">
+            <Field label="Font family" grow>
+              <select
+                className="editor-inspector__input"
+                value={selectedText.fontFamily}
+                onChange={(event) =>
+                  patch(selectedText.id, {
+                    fontFamily: event.target.value as FontFamily,
+                  })
+                }
+              >
+                {FONT_FAMILIES.map((family) => (
+                  <option key={family} value={family}>
+                    {family}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="editor-inspector__row">
+              <NumberField
+                label="Size"
+                value={selectedText.fontSize}
+                suffix="pt"
+                min={1}
+                max={240}
+                grow
+                onChange={(value) =>
+                  patch(selectedText.id, { fontSize: Math.min(value, 240) })
+                }
+              />
+              <NumberField
+                label="Line spacing"
+                value={selectedText.lineHeight ?? 1.25}
+                min={0.5}
+                max={4}
+                step={0.05}
+                grow
+                onChange={(value) => patch(selectedText.id, { lineHeight: value })}
+              />
+            </div>
+            <div className="editor-inspector__row">
+              <IconButton
+                icon="bold"
+                label="Bold"
+                iconSize="sm"
+                aria-pressed={selectedText.bold}
+                onClick={() =>
+                  patch(selectedText.id, { bold: !selectedText.bold })
+                }
+              />
+              <IconButton
+                icon="italic"
+                label="Italic"
+                iconSize="sm"
+                aria-pressed={selectedText.italic}
+                onClick={() =>
+                  patch(selectedText.id, { italic: !selectedText.italic })
+                }
+              />
+              <span className="editor-inspector__divider" />
+              {ALIGNMENTS.map(({ value, icon, label }) => (
+                <IconButton
+                  key={value}
+                  icon={icon}
+                  label={label}
+                  iconSize="sm"
+                  aria-pressed={selectedText.alignment === value}
+                  onClick={() => patch(selectedText.id, { alignment: value })}
+                />
+              ))}
+            </div>
+            <Field label="Text color" className="editor-inspector__field--color">
+              <input
+                type="color"
+                className="editor-inspector__color"
+                value={selectedText.color}
+                onChange={(event) =>
+                  patch(selectedText.id, { color: event.target.value })
+                }
+              />
+            </Field>
+          </Section>
+        )}
+
+        {selectedShape && (
+          <Section title="Fill & stroke">
+            <div className="editor-inspector__row">
+              <Field label="Stroke">
+                <input
+                  type="color"
+                  className="editor-inspector__color"
+                  value={selectedShape.strokeColor}
+                  onChange={(event) =>
+                    patch(selectedShape.id, { strokeColor: event.target.value })
+                  }
+                />
+              </Field>
+              <NumberField
+                label="Stroke width"
+                value={selectedShape.strokeWidth}
+                min={0}
+                max={24}
+                grow
+                onChange={(value) =>
+                  patch(selectedShape.id, { strokeWidth: Math.min(value, 24) })
+                }
+              />
+            </div>
+            <div className="editor-inspector__row">
+              <Field label="Fill">
+                <input
+                  type="color"
+                  className="editor-inspector__color"
+                  value={selectedShape.fillColor ?? '#000000'}
+                  onChange={(event) =>
+                    patch(selectedShape.id, { fillColor: event.target.value })
+                  }
+                />
+              </Field>
+              <button
+                type="button"
+                className="editor-inspector__toggle"
+                aria-pressed={selectedShape.fillColor === null}
+                onClick={() =>
+                  patch(selectedShape.id, {
+                    fillColor:
+                      selectedShape.fillColor === null ? '#ffffff' : null,
+                  })
+                }
+              >
+                {selectedShape.fillColor === null ? 'No fill' : 'Has fill'}
+              </button>
+            </div>
+            {selectedShape.shape === 'rect' && (
+              <NumberField
+                label="Corner radius"
+                value={selectedShape.cornerRadius ?? 0}
+                min={0}
+                max={200}
+                grow
+                onChange={(value) =>
+                  patch(selectedShape.id, { cornerRadius: value })
+                }
+              />
+            )}
+          </Section>
+        )}
+
+        {selectedImage && (
+          <Section title="Image">
+            <Field label="File name" grow>
+              <span
+                className="editor-inspector__readonly"
+                title={selectedImage.name}
+              >
+                {selectedImage.name}
+              </span>
+            </Field>
+            <div className="editor-inspector__row">
+              <button
+                type="button"
+                className="editor-inspector__toggle"
+                aria-pressed={selectedImage.lockAspect !== false}
+                onClick={() =>
+                  patch(selectedImage.id, {
+                    lockAspect: selectedImage.lockAspect === false,
+                  })
+                }
+              >
+                {selectedImage.lockAspect !== false
+                  ? 'Aspect ratio locked'
+                  : 'Aspect ratio free'}
+              </button>
+            </div>
+          </Section>
+        )}
+
+        <ArrangeSection
+          elementId={single.id}
+          onDuplicate={() => void duplicateElements([single.id])}
+          onDelete={() => setConfirmDelete(true)}
+        />
+
+        <ConfirmDialog
+          open={confirmDelete}
+          title="Delete this object?"
+          description={`The ${
+            single.type === 'text'
+              ? 'text'
+              : single.type === 'image'
+                ? 'image'
+                : 'shape'
+          } will be removed from the document.`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            setConfirmDelete(false)
+            void deleteElements([single.id])
+            clearElementSelection()
+          }}
+          onClose={() => setConfirmDelete(false)}
+        />
+      </>
     )
   }
 
   return (
     <div className="editor-inspector">
-      <p className="editor-inspector__summary">
-        {single.type === 'text'
-          ? 'Text'
-          : single.type === 'image'
-            ? 'Image'
-            : 'Shape'}
-        {' · '}
-        {formatValue(convertPtToUnit(single.x, units))}×
-        {formatValue(convertPtToUnit(single.y, units))}
-        {UNIT_SUFFIX[units]}
-      </p>
-
-      <PositionSizeSection
-        element={single}
-        units={units}
-        onPatch={(elementPatch) => patch(single.id, elementPatch)}
-      />
-
-      {selectedText && (
-        <Section title="Text">
-          <Field label="Font family" grow>
-            <select
-              className="editor-inspector__input"
-              value={selectedText.fontFamily}
-              onChange={(event) =>
-                patch(selectedText.id, {
-                  fontFamily: event.target.value as FontFamily,
-                })
-              }
-            >
-              {FONT_FAMILIES.map((family) => (
-                <option key={family} value={family}>
-                  {family}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="editor-inspector__row">
-            <NumberField
-              label="Size"
-              value={selectedText.fontSize}
-              suffix="pt"
-              min={1}
-              max={240}
-              grow
-              onChange={(value) =>
-                patch(selectedText.id, { fontSize: Math.min(value, 240) })
-              }
-            />
-            <NumberField
-              label="Line spacing"
-              value={selectedText.lineHeight ?? 1.25}
-              min={0.5}
-              max={4}
-              step={0.05}
-              grow
-              onChange={(value) => patch(selectedText.id, { lineHeight: value })}
-            />
-          </div>
-          <div className="editor-inspector__row">
-            <IconButton
-              icon="bold"
-              label="Bold"
-              iconSize="sm"
-              aria-pressed={selectedText.bold}
-              onClick={() =>
-                patch(selectedText.id, { bold: !selectedText.bold })
-              }
-            />
-            <IconButton
-              icon="italic"
-              label="Italic"
-              iconSize="sm"
-              aria-pressed={selectedText.italic}
-              onClick={() =>
-                patch(selectedText.id, { italic: !selectedText.italic })
-              }
-            />
-            <span className="editor-inspector__divider" />
-            {ALIGNMENTS.map(({ value, icon, label }) => (
-              <IconButton
-                key={value}
-                icon={icon}
-                label={label}
-                iconSize="sm"
-                aria-pressed={selectedText.alignment === value}
-                onClick={() => patch(selectedText.id, { alignment: value })}
-              />
-            ))}
-          </div>
-          <Field label="Text color" className="editor-inspector__field--color">
-            <input
-              type="color"
-              className="editor-inspector__color"
-              value={selectedText.color}
-              onChange={(event) =>
-                patch(selectedText.id, { color: event.target.value })
-              }
-            />
-          </Field>
-        </Section>
-      )}
-
-      {selectedShape && (
-        <Section title="Fill & stroke">
-          <div className="editor-inspector__row">
-            <Field label="Stroke">
-              <input
-                type="color"
-                className="editor-inspector__color"
-                value={selectedShape.strokeColor}
-                onChange={(event) =>
-                  patch(selectedShape.id, { strokeColor: event.target.value })
-                }
-              />
-            </Field>
-            <NumberField
-              label="Stroke width"
-              value={selectedShape.strokeWidth}
-              min={0}
-              max={24}
-              grow
-              onChange={(value) =>
-                patch(selectedShape.id, { strokeWidth: Math.min(value, 24) })
-              }
-            />
-          </div>
-          <div className="editor-inspector__row">
-            <Field label="Fill">
-              <input
-                type="color"
-                className="editor-inspector__color"
-                value={selectedShape.fillColor ?? '#000000'}
-                onChange={(event) =>
-                  patch(selectedShape.id, { fillColor: event.target.value })
-                }
-              />
-            </Field>
-            <button
-              type="button"
-              className="editor-inspector__toggle"
-              aria-pressed={selectedShape.fillColor === null}
-              onClick={() =>
-                patch(selectedShape.id, {
-                  fillColor:
-                    selectedShape.fillColor === null ? '#ffffff' : null,
-                })
-              }
-            >
-              {selectedShape.fillColor === null ? 'No fill' : 'Has fill'}
-            </button>
-          </div>
-          {selectedShape.shape === 'rect' && (
-            <NumberField
-              label="Corner radius"
-              value={selectedShape.cornerRadius ?? 0}
-              min={0}
-              max={200}
-              grow
-              onChange={(value) =>
-                patch(selectedShape.id, { cornerRadius: value })
-              }
-            />
-          )}
-        </Section>
-      )}
-
-      {selectedImage && (
-        <Section title="Image">
-          <Field label="File name" grow>
-            <span
-              className="editor-inspector__readonly"
-              title={selectedImage.name}
-            >
-              {selectedImage.name}
-            </span>
-          </Field>
-          <div className="editor-inspector__row">
-            <button
-              type="button"
-              className="editor-inspector__toggle"
-              aria-pressed={selectedImage.lockAspect !== false}
-              onClick={() =>
-                patch(selectedImage.id, {
-                  lockAspect: selectedImage.lockAspect === false,
-                })
-              }
-            >
-              {selectedImage.lockAspect !== false
-                ? 'Aspect ratio locked'
-                : 'Aspect ratio free'}
-            </button>
-          </div>
-        </Section>
-      )}
-
-      <ArrangeSection
-        elementId={single.id}
-        onDuplicate={() => void duplicateElements([single.id])}
-        onDelete={() => setConfirmDelete(true)}
-      />
-
-      <ConfirmDialog
-        open={confirmDelete}
-        title="Delete this object?"
-        description={`The ${
-          single.type === 'text'
-            ? 'text'
-            : single.type === 'image'
-              ? 'image'
-              : 'shape'
-        } will be removed from the document.`}
-        confirmLabel="Delete"
-        onConfirm={() => {
-          setConfirmDelete(false)
-          void deleteElements([single.id])
-          clearElementSelection()
-        }}
-        onClose={() => setConfirmDelete(false)}
-      />
+      {textFormattingToolbar}
+      {body}
     </div>
   )
 }

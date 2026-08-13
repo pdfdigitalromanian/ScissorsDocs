@@ -7,7 +7,7 @@ import '../features/shell/shell.css'
 import './app-layout.css'
 
 export default function AppLayout() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
 

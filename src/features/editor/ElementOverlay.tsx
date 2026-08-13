@@ -258,6 +258,7 @@ export function ElementOverlay({
   const { settings } = useSettings()
   const surfaceRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [imagePending, setImagePending] = useState<Point | null>(null)
@@ -335,7 +336,9 @@ export function ElementOverlay({
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (editingId) {
-      setEditingId(null)
+      /* Commit the pending edit by blurring the editor instead of
+         unmounting it, so typed text is never lost. */
+      textareaRef.current?.blur()
       return
     }
     if (tool === 'image') {
@@ -377,7 +380,6 @@ export function ElementOverlay({
         startPointer: point,
         current: point,
       })
-      surfaceRef.current?.setPointerCapture(event.pointerId)
       return
     }
 
@@ -403,6 +405,15 @@ export function ElementOverlay({
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     if (!draft) return
+    /* Capture lazily on the first actual movement instead of at pointerdown.
+       Pointer capture retargets the whole gesture (including the click and
+       double-click) to the surface, which would swallow the element's
+       onDoubleClick used to open the text editor. A stationary click never
+       moves, so it never captures and dblclick still reaches the element. */
+    const surface = surfaceRef.current
+    if (surface && !surface.hasPointerCapture(event.pointerId)) {
+      surface.setPointerCapture(event.pointerId)
+    }
     const point = clampToPage(localPoint(event))
     switch (draft.kind) {
       case 'create':
@@ -535,6 +546,7 @@ export function ElementOverlay({
     if (!draft || draft.kind !== 'move') return
     const dx = currentPoint.x - draft.startPointer.x
     const dy = currentPoint.y - draft.startPointer.y
+    if (dx === 0 && dy === 0) return
     void commitElements((all) =>
       all.map((element) => {
         if (!draft.ids.includes(element.id)) return element
@@ -784,6 +796,9 @@ export function ElementOverlay({
               opacity: element.opacity ?? 1,
             }}
             onPointerDown={(event) => {
+              if (editingId && editingId !== element.id) {
+                textareaRef.current?.blur()
+              }
               if (tool !== 'select' || editing) return
               event.stopPropagation()
               if (event.shiftKey) {
@@ -811,11 +826,13 @@ export function ElementOverlay({
                 startPointer: point,
                 current: point,
               })
-              surfaceRef.current?.setPointerCapture(event.pointerId)
             }}
             onDoubleClick={(event) => {
               if (tool !== 'select' || element.type !== 'text') return
               event.stopPropagation()
+              /* Cancel the move draft the click sequence started so the
+                 editor never drags the element while typing. */
+              setDraft(null)
               selectElement(element.id)
               setEditingId(element.id)
             }}
@@ -876,6 +893,7 @@ export function ElementOverlay({
       {editingElement && (
         <textarea
           key={editingElement.id}
+          ref={textareaRef}
           className="editor-element__input"
           style={{
             left: editingElement.x * scale,
@@ -944,10 +962,16 @@ function ElementPreview({
       />
     )
   }
-  return <ShapePreview element={element} />
+  return <ShapePreview element={element} scale={scale} />
 }
 
-function ShapePreview({ element }: { element: ShapeElement }) {
+function ShapePreview({
+  element,
+  scale,
+}: {
+  element: ShapeElement
+  scale: number
+}) {
   const width = element.width
   const height = element.height
   const hasStroke = element.strokeWidth > 0
@@ -962,8 +986,8 @@ function ShapePreview({ element }: { element: ShapeElement }) {
     return (
       <svg
         className="editor-element__shape"
-        width={width}
-        height={height}
+        width={width * scale}
+        height={height * scale}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
       >
@@ -988,8 +1012,8 @@ function ShapePreview({ element }: { element: ShapeElement }) {
     return (
       <svg
         className="editor-element__shape"
-        width={width}
-        height={height}
+        width={width * scale}
+        height={height * scale}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
       >
@@ -1010,8 +1034,8 @@ function ShapePreview({ element }: { element: ShapeElement }) {
   return (
     <svg
       className="editor-element__shape"
-      width={width}
-      height={height}
+      width={width * scale}
+      height={height * scale}
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
     >

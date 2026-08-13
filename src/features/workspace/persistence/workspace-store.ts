@@ -31,7 +31,6 @@ function fallbackPanels(): Record<PanelId, PanelMode> {
   return {
     left: PANEL_DEFAULTS.left.mode,
     inspector: PANEL_DEFAULTS.inspector.mode,
-    bottom: PANEL_DEFAULTS.bottom.mode,
   }
 }
 
@@ -39,7 +38,6 @@ function fallbackPanelSizes(): Record<PanelId, number> {
   return {
     left: PANEL_DEFAULTS.left.size,
     inspector: PANEL_DEFAULTS.inspector.size,
-    bottom: PANEL_DEFAULTS.bottom.size,
   }
 }
 
@@ -50,8 +48,7 @@ function isPanels(
   const candidate = value as Record<string, unknown>
   return (
     typeof candidate.left === 'string' &&
-    typeof candidate.inspector === 'string' &&
-    typeof candidate.bottom === 'string'
+    typeof candidate.inspector === 'string'
   )
 }
 
@@ -60,8 +57,7 @@ function isPanelSizes(value: unknown): value is Record<PanelId, number> {
   const candidate = value as Record<string, unknown>
   return (
     typeof candidate.left === 'number' &&
-    typeof candidate.inspector === 'number' &&
-    typeof candidate.bottom === 'number'
+    typeof candidate.inspector === 'number'
   )
 }
 

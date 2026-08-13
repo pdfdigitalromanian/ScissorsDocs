@@ -16,12 +16,14 @@ import type { ThemePreference } from '@/hooks/useTheme'
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  Tab,
+  TabPanel,
+  Tabs,
+  TabsList,
 } from '@/components/ui'
+import type { IconName } from '@/components/icons/Icon'
+import { Icon } from '@/components/icons/Icon'
 import Switch from '@/components/ui/Switch'
-import Radio from '@/components/ui/Radio'
 import Input from '@/components/ui/Input'
 import './settings.css'
 
@@ -41,20 +43,27 @@ const STARTUP_OPTIONS: Array<{ value: StartupPage; label: string; hint: string }
 ]
 
 function SectionCard({
+  icon,
   title,
   description,
   children,
 }: {
+  icon: IconName
   title: string
   description: string
   children: React.ReactNode
 }) {
   return (
     <Card className="settings-card">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
+      <div className="settings-card__header">
+        <span className="settings-card__icon" aria-hidden="true">
+          <Icon name={icon} size="md" />
+        </span>
+        <div className="settings-card__heading">
+          <h2 className="settings-card__title">{title}</h2>
+          <p className="settings-card__description">{description}</p>
+        </div>
+      </div>
       <CardContent className="settings-card__content">{children}</CardContent>
     </Card>
   )
@@ -64,15 +73,19 @@ function SettingRow({
   label,
   hint,
   children,
+  hintId,
 }: {
   label: string
   hint?: string
   children: React.ReactNode
+  hintId?: string
 }) {
   return (
     <div className="settings-row">
       <div className="settings-row__text">
-        <span className="settings-row__label">{label}</span>
+        <span className="settings-row__label" id={hintId}>
+          {label}
+        </span>
         {hint && <span className="settings-row__hint">{hint}</span>}
       </div>
       <div className="settings-row__control">{children}</div>
@@ -80,7 +93,7 @@ function SettingRow({
   )
 }
 
-function RadioGroup<T extends string>({
+function SegmentGroup<T extends string>({
   name,
   value,
   options,
@@ -94,18 +107,48 @@ function RadioGroup<T extends string>({
   disabled?: boolean
 }) {
   return (
-    <div className="settings-options" role="radiogroup" aria-label={name}>
+    <div className="settings-segments" role="radiogroup" aria-label={name}>
       {options.map((option) => (
-        <Radio
+        <button
           key={option.value}
-          name={name}
-          label={option.hint ? `${option.label} — ${option.hint}` : option.label}
-          checked={value === option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
           disabled={disabled}
-          onChange={() => onChange(option.value)}
-        />
+          title={option.hint}
+          className={`settings-segment${
+            value === option.value ? ' settings-segment--active' : ''
+          }`}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
       ))}
     </div>
+  )
+}
+
+function ToggleRow({
+  id,
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  id: string
+  label: string
+  hint: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <SettingRow label={label} hint={hint}>
+      <Switch
+        id={id}
+        checked={checked}
+        onChange={onChange}
+      />
+    </SettingRow>
   )
 }
 
@@ -133,276 +176,307 @@ export default function SettingsPage() {
   return (
     <div className="settings-page page-enter">
       <header className="settings-page__header">
-        <h1 className="settings-page__title">Settings</h1>
-        <p className="settings-page__description">
-          Preferences are stored on this device and apply to the document
-          workspace.
-        </p>
+        <span className="settings-page__icon" aria-hidden="true">
+          <Icon name="settings" size="lg" />
+        </span>
+        <div className="settings-page__heading">
+          <h1 className="settings-page__title">Settings</h1>
+          <p className="settings-page__description">
+            Preferences are stored on this device and apply to the document
+            workspace.
+          </p>
+        </div>
       </header>
 
-      <div className="settings-page__grid">
-        <SectionCard
-          title="General"
-          description="App-wide behavior and appearance."
-        >
-          <SettingRow label="Theme">
-            <RadioGroup
-              name="settings-theme"
-              value={preference}
-              options={THEME_OPTIONS}
-              onChange={setPreference}
-            />
-          </SettingRow>
+      <div className="settings-page__content">
+        <Tabs defaultValue="general" className="settings-tabs">
+          <TabsList aria-label="Settings categories">
+            <Tab value="general">
+              <Icon name="tools" size="sm" />
+              General
+            </Tab>
+            <Tab value="viewer">
+              <Icon name="file-text" size="sm" />
+              PDF Viewer
+            </Tab>
+            <Tab value="editor">
+              <Icon name="edit" size="sm" />
+              Editor
+            </Tab>
+            <Tab value="workspace">
+              <Icon name="workspace" size="sm" />
+              Workspace
+            </Tab>
+          </TabsList>
 
-          <SettingRow
-            label="Auto-save"
-            hint="Save changes to the document automatically."
-          >
-            <Switch
-              checked={settings.general.autoSave}
-              onChange={(event) =>
-                setGeneral({ autoSave: event.target.checked })
-              }
-            />
-          </SettingRow>
+          <TabPanel value="general">
+            <SectionCard
+              icon="tools"
+              title="General"
+              description="App-wide behavior and appearance."
+            >
+              <SettingRow label="Theme">
+                <SegmentGroup
+                  name="settings-theme"
+                  value={preference}
+                  options={THEME_OPTIONS}
+                  onChange={setPreference}
+                />
+              </SettingRow>
 
-          <SettingRow
-            label="Delete confirmation"
-            hint="Ask before deleting pages and objects."
-          >
-            <Switch
-              checked={settings.general.deleteConfirmation}
-              onChange={(event) =>
-                setGeneral({ deleteConfirmation: event.target.checked })
-              }
-            />
-          </SettingRow>
+              <ToggleRow
+                id="settings-autosave"
+                label="Auto-save"
+                hint="Save changes to the document automatically."
+                checked={settings.general.autoSave}
+                onChange={(checked) => setGeneral({ autoSave: checked })}
+              />
 
-          <SettingRow label="Startup behavior">
-            <RadioGroup
-              name="settings-startup"
-              value={settings.general.startup}
-              options={STARTUP_OPTIONS}
-              onChange={(startup) => setGeneral({ startup })}
-            />
-          </SettingRow>
-        </SectionCard>
-
-        <SectionCard
-          title="PDF Viewer"
-          description="Defaults applied when a document is opened."
-        >
-          <SettingRow label="Default mode">
-            <RadioGroup
-              name="settings-viewer-mode"
-              value={settings.viewer.mode}
-              options={[
-                { value: 'continuous', label: 'Continuous', hint: 'All pages in a scrollable column' },
-                { value: 'single', label: 'Single page', hint: 'One page at a time' },
-              ]}
-              onChange={(mode) => setViewer({ mode })}
-            />
-          </SettingRow>
-
-          <SettingRow label="Default fit">
-            <RadioGroup
-              name="settings-viewer-fit"
-              value={settings.viewer.fitMode}
-              options={[
-                { value: 'width', label: 'Fit to width' },
-                { value: 'page', label: 'Fit to page' },
-                { value: 'manual', label: 'Manual zoom' },
-              ]}
-              onChange={(fitMode) => setViewer({ fitMode })}
-            />
-          </SettingRow>
-
-          <SettingRow
-            label="Default zoom"
-            hint="Used when the fit is set to manual."
-          >
-            <Input
-              type="number"
-              min={0.25}
-              max={4}
-              step={0.1}
-              value={settings.viewer.zoom}
-              disabled={settings.viewer.fitMode !== 'manual'}
-              className="settings-number"
-              onChange={(event) => {
-                const zoom = Number(event.target.value)
-                if (Number.isFinite(zoom) && zoom > 0) {
-                  setViewer({ zoom: Math.min(Math.max(zoom, 0.25), 4) })
+              <ToggleRow
+                id="settings-delete-confirmation"
+                label="Delete confirmation"
+                hint="Ask before deleting pages and objects."
+                checked={settings.general.deleteConfirmation}
+                onChange={(checked) =>
+                  setGeneral({ deleteConfirmation: checked })
                 }
-              }}
-            />
-          </SettingRow>
+              />
 
-          <SettingRow
-            label="Show pages panel"
-            hint="Keep the thumbnail panel open by default."
-          >
-            <Switch
-              checked={settings.viewer.showPagesPanel}
-              onChange={(event) =>
-                setViewer({ showPagesPanel: event.target.checked })
-              }
-            />
-          </SettingRow>
-        </SectionCard>
+              <SettingRow label="Startup behavior">
+                <SegmentGroup
+                  name="settings-startup"
+                  value={settings.general.startup}
+                  options={STARTUP_OPTIONS}
+                  onChange={(startup) => setGeneral({ startup })}
+                />
+              </SettingRow>
+            </SectionCard>
+          </TabPanel>
 
-        <SectionCard
-          title="Editor"
-          description="Defaults for new text and shapes, and display units."
-        >
-          <SettingRow
-            label="Units"
-            hint="Used for position, size and page dimensions."
-          >
-            <RadioGroup
-              name="settings-editor-units"
-              value={settings.editor.units}
-              options={MEASUREMENT_UNITS.map((unit) => ({
-                value: unit,
-                label: UNIT_LABELS[unit],
-              }))}
-              onChange={setUnits}
-            />
-          </SettingRow>
+          <TabPanel value="viewer">
+            <SectionCard
+              icon="file-text"
+              title="PDF Viewer"
+              description="Defaults applied when a document is opened."
+            >
+              <SettingRow label="Default mode">
+                <SegmentGroup
+                  name="settings-viewer-mode"
+                  value={settings.viewer.mode}
+                  options={[
+                    {
+                      value: 'continuous',
+                      label: 'Continuous',
+                      hint: 'All pages in a scrollable column',
+                    },
+                    {
+                      value: 'single',
+                      label: 'Single page',
+                      hint: 'One page at a time',
+                    },
+                  ]}
+                  onChange={(mode) => setViewer({ mode })}
+                />
+              </SettingRow>
 
-          <div className="settings-subsection">
-            <h3 className="settings-subsection__title">Default text</h3>
-            <SettingRow label="Font family">
-              <select
-                className="settings-select"
-                value={settings.editor.text.fontFamily}
-                onChange={(event) =>
-                  setText({
-                    fontFamily: event.target.value as FontFamily,
-                  })
-                }
+              <SettingRow label="Default fit">
+                <SegmentGroup
+                  name="settings-viewer-fit"
+                  value={settings.viewer.fitMode}
+                  options={[
+                    { value: 'width', label: 'Fit to width' },
+                    { value: 'page', label: 'Fit to page' },
+                    { value: 'manual', label: 'Manual zoom' },
+                  ]}
+                  onChange={(fitMode) => setViewer({ fitMode })}
+                />
+              </SettingRow>
+
+              <SettingRow
+                label="Default zoom"
+                hint="Used when the fit is set to manual."
               >
-                {FONT_FAMILIES.map((family) => (
-                  <option key={family} value={family}>
-                    {family}
-                  </option>
-                ))}
-              </select>
-            </SettingRow>
-            <div className="settings-row settings-row--inline">
-              <SettingRow label="Font size">
                 <Input
                   type="number"
-                  min={6}
-                  max={240}
-                  value={settings.editor.text.fontSize}
+                  min={0.25}
+                  max={4}
+                  step={0.1}
+                  value={settings.viewer.zoom}
+                  disabled={settings.viewer.fitMode !== 'manual'}
                   className="settings-number"
                   onChange={(event) => {
-                    const size = Number(event.target.value)
-                    if (Number.isFinite(size) && size >= 1) {
-                      setText({ fontSize: Math.min(size, 240) })
+                    const zoom = Number(event.target.value)
+                    if (Number.isFinite(zoom) && zoom > 0) {
+                      setViewer({ zoom: Math.min(Math.max(zoom, 0.25), 4) })
                     }
                   }}
                 />
               </SettingRow>
-              <SettingRow label="Text color">
-                <Input
-                  type="color"
-                  value={settings.editor.text.color}
-                  className="settings-color"
-                  onChange={(event) => setText({ color: event.target.value })}
+
+              <ToggleRow
+                id="settings-show-pages-panel"
+                label="Show pages panel"
+                hint="Keep the thumbnail panel open by default."
+                checked={settings.viewer.showPagesPanel}
+                onChange={(checked) => setViewer({ showPagesPanel: checked })}
+              />
+            </SectionCard>
+          </TabPanel>
+
+          <TabPanel value="editor">
+            <SectionCard
+              icon="edit"
+              title="Editor"
+              description="Defaults for new text and shapes, and display units."
+            >
+              <SettingRow
+                label="Units"
+                hint="Used for position, size and page dimensions."
+              >
+                <SegmentGroup
+                  name="settings-editor-units"
+                  value={settings.editor.units}
+                  options={MEASUREMENT_UNITS.map((unit) => ({
+                    value: unit,
+                    label: UNIT_LABELS[unit],
+                  }))}
+                  onChange={setUnits}
                 />
               </SettingRow>
-            </div>
-            <SettingRow label="Style">
-              <div className="settings-options settings-options--switches">
-                <Switch
-                  label="Bold"
-                  checked={settings.editor.text.bold}
-                  onChange={(event) => setText({ bold: event.target.checked })}
-                />
-                <Switch
-                  label="Italic"
-                  checked={settings.editor.text.italic}
-                  onChange={(event) => setText({ italic: event.target.checked })}
-                />
+
+              <div className="settings-subsection">
+                <h3 className="settings-subsection__title">Default text</h3>
+                <SettingRow label="Font family">
+                  <select
+                    className="settings-select"
+                    value={settings.editor.text.fontFamily}
+                    onChange={(event) =>
+                      setText({ fontFamily: event.target.value as FontFamily })
+                    }
+                  >
+                    {FONT_FAMILIES.map((family) => (
+                      <option key={family} value={family}>
+                        {family}
+                      </option>
+                    ))}
+                  </select>
+                </SettingRow>
+                <div className="settings-row settings-row--inline">
+                  <SettingRow label="Font size">
+                    <Input
+                      type="number"
+                      min={6}
+                      max={240}
+                      value={settings.editor.text.fontSize}
+                      className="settings-number"
+                      onChange={(event) => {
+                        const size = Number(event.target.value)
+                        if (Number.isFinite(size) && size >= 1) {
+                          setText({ fontSize: Math.min(size, 240) })
+                        }
+                      }}
+                    />
+                  </SettingRow>
+                  <SettingRow label="Text color">
+                    <Input
+                      type="color"
+                      value={settings.editor.text.color}
+                      className="settings-color"
+                      onChange={(event) =>
+                        setText({ color: event.target.value })
+                      }
+                    />
+                  </SettingRow>
+                </div>
+                <SettingRow label="Style">
+                  <div className="settings-options settings-options--switches">
+                    <Switch
+                      label="Bold"
+                      checked={settings.editor.text.bold}
+                      onChange={(checked) => setText({ bold: checked })}
+                    />
+                    <Switch
+                      label="Italic"
+                      checked={settings.editor.text.italic}
+                      onChange={(checked) => setText({ italic: checked })}
+                    />
+                  </div>
+                </SettingRow>
+                <SettingRow label="Alignment">
+                  <SegmentGroup
+                    name="settings-editor-text-align"
+                    value={settings.editor.text.alignment}
+                    options={TEXT_ALIGNMENTS.map((alignment) => ({
+                      value: alignment,
+                      label: alignment,
+                    }))}
+                    onChange={(alignment) => setText({ alignment })}
+                  />
+                </SettingRow>
               </div>
-            </SettingRow>
-            <SettingRow label="Alignment">
-              <RadioGroup
-                name="settings-editor-text-align"
-                value={settings.editor.text.alignment}
-                options={TEXT_ALIGNMENTS.map((alignment) => ({
-                  value: alignment,
-                  label: alignment,
-                }))}
-                onChange={(alignment) => setText({ alignment })}
-              />
-            </SettingRow>
-          </div>
 
-          <div className="settings-subsection">
-            <h3 className="settings-subsection__title">Default shapes</h3>
-            <div className="settings-row settings-row--inline">
-              <SettingRow label="Stroke color">
-                <Input
-                  type="color"
-                  value={settings.editor.shape.strokeColor}
-                  className="settings-color"
-                  onChange={(event) =>
-                    setShape({ strokeColor: event.target.value })
+              <div className="settings-subsection">
+                <h3 className="settings-subsection__title">Default shapes</h3>
+                <div className="settings-row settings-row--inline">
+                  <SettingRow label="Stroke color">
+                    <Input
+                      type="color"
+                      value={settings.editor.shape.strokeColor}
+                      className="settings-color"
+                      onChange={(event) =>
+                        setShape({ strokeColor: event.target.value })
+                      }
+                    />
+                  </SettingRow>
+                  <SettingRow label="Fill color">
+                    <Input
+                      type="color"
+                      value={settings.editor.shape.fillColor}
+                      className="settings-color"
+                      onChange={(event) =>
+                        setShape({ fillColor: event.target.value })
+                      }
+                    />
+                  </SettingRow>
+                  <SettingRow label="Stroke width">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={24}
+                      value={settings.editor.shape.strokeWidth}
+                      className="settings-number"
+                      onChange={(event) => {
+                        const width = Number(event.target.value)
+                        if (Number.isFinite(width) && width >= 0) {
+                          setShape({ strokeWidth: Math.min(width, 24) })
+                        }
+                      }}
+                    />
+                  </SettingRow>
+                </div>
+              </div>
+            </SectionCard>
+          </TabPanel>
+
+          <TabPanel value="workspace">
+            <SectionCard
+              icon="workspace"
+              title="Workspace"
+              description="The layout used by the document workspace."
+            >
+              <SettingRow label="Layout">
+                <SegmentGroup
+                  name="settings-workspace-layout"
+                  value={settings.workspace.layout}
+                  options={[{ value: 'large', label: 'Large' }]}
+                  onChange={(layout) =>
+                    updateSettings({ workspace: { layout } })
                   }
                 />
               </SettingRow>
-              <SettingRow label="Fill color">
-                <Input
-                  type="color"
-                  value={settings.editor.shape.fillColor}
-                  className="settings-color"
-                  onChange={(event) =>
-                    setShape({ fillColor: event.target.value })
-                  }
-                />
-              </SettingRow>
-              <SettingRow label="Stroke width">
-                <Input
-                  type="number"
-                  min={0}
-                  max={24}
-                  value={settings.editor.shape.strokeWidth}
-                  className="settings-number"
-                  onChange={(event) => {
-                    const width = Number(event.target.value)
-                    if (Number.isFinite(width) && width >= 0) {
-                      setShape({ strokeWidth: Math.min(width, 24) })
-                    }
-                  }}
-                />
-              </SettingRow>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Workspace"
-          description="The layout used by the document workspace."
-        >
-          <SettingRow label="Layout">
-            <div className="settings-options" role="radiogroup" aria-label="Workspace layout">
-              <Radio
-                name="settings-workspace-layout"
-                label="Large — current workspace"
-                checked={settings.workspace.layout === 'large'}
-                onChange={() => updateSettings({ workspace: { layout: 'large' } })}
-              />
-              <Radio
-                name="settings-workspace-layout"
-                label="Grid — coming soon"
-                disabled
-              />
-            </div>
-          </SettingRow>
-        </SectionCard>
+            </SectionCard>
+          </TabPanel>
+        </Tabs>
       </div>
     </div>
   )

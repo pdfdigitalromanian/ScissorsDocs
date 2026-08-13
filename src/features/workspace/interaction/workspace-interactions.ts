@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { usePdfEditor } from '@/features/editor/PdfEditorProvider'
 import { useWorkspace } from '../state/use-workspace'
 import { createCommandRegistry } from './commands'
 import type { CommandRegistry } from './commands'
@@ -38,11 +39,6 @@ export function useWorkspaceCommands(): CommandRegistry {
       execute: () => togglePanelVisibility('inspector'),
     })
     registry.register({
-      id: 'workspace.toggleBottomPanel',
-      label: 'Toggle the bottom panel',
-      execute: () => togglePanelVisibility('bottom'),
-    })
-    registry.register({
       id: 'workspace.closeActiveTab',
       label: 'Close the active document tab',
       execute: () => {
@@ -71,6 +67,7 @@ export function useWorkspaceCommands(): CommandRegistry {
  */
 export function useWorkspaceShortcuts(): void {
   const commands = useWorkspaceCommands()
+  const { undo, redo } = usePdfEditor()
 
   const bindings: ShortcutBinding[] = [
     {
@@ -81,16 +78,33 @@ export function useWorkspaceShortcuts(): void {
       },
     },
     {
+      combo: 'mod+z',
+      handler: (event) => {
+        event.preventDefault()
+        void undo()
+      },
+    },
+    {
+      combo: 'mod+shift+z',
+      handler: (event) => {
+        event.preventDefault()
+        void redo()
+      },
+    },
+    {
+      combo: 'mod+y',
+      handler: (event) => {
+        event.preventDefault()
+        void redo()
+      },
+    },
+    {
       combo: 'alt+1',
       handler: () => commands.execute('workspace.toggleLeftPanel'),
     },
     {
       combo: 'alt+2',
       handler: () => commands.execute('workspace.toggleInspectorPanel'),
-    },
-    {
-      combo: 'alt+3',
-      handler: () => commands.execute('workspace.toggleBottomPanel'),
     },
     {
       combo: 'mod+shift+]',

@@ -121,9 +121,8 @@ export function EditorToolbar() {
       <ConfirmDialog
         open={confirmDelete}
         title="Delete selected objects?"
-        description={`${selectedElementIds.length} object${
-          selectedElementIds.length === 1 ? '' : 's'
-        } will be removed from the document.`}
+        description={`${selectedElementIds.length} object${selectedElementIds.length === 1 ? '' : 's'
+          } will be removed from the document.`}
         confirmLabel="Delete"
         onConfirm={() => {
           setConfirmDelete(false)
