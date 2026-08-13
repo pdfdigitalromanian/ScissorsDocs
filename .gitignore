@@ -31,6 +31,7 @@ __pycache__/
 # Project prompt files
 Pmt/
 xyz/
+grek/
 
 # Markdown documentation and agent configuration
 *.md
