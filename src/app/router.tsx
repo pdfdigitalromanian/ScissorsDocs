@@ -8,6 +8,7 @@ const HomePage = lazy(() => import('@/pages/HomePage'))
 const LibraryPage = lazy(() => import('@/pages/LibraryPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const PlaceholderPage = lazy(() => import('@/pages/PlaceholderPage'))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const ToolPage = lazy(() => import('@/pages/ToolPage'))
 const ToolsPage = lazy(() => import('@/pages/ToolsPage'))
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'))
@@ -31,6 +32,8 @@ export const router = createBrowserRouter([
               element:
                 route.path === '/workspace' ? (
                   <WorkspacePage />
+                ) : route.path === '/settings' ? (
+                  <SettingsPage />
                 ) : route.path === '/recent' || route.path === '/favorites' ? (
                   <LibraryPage />
                 ) : (

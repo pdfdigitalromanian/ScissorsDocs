@@ -527,3 +527,44 @@
 .editor-overlay__draft--line {
   transform-origin: 0 0;
 }
+
+/* Number input with unit suffix */
+.editor-inspector__number {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.editor-inspector__number .editor-inspector__input--number {
+  min-width: 0;
+  flex: 1;
+}
+
+.editor-inspector__suffix {
+  flex-shrink: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-muted);
+}
+
+/* Range (opacity) */
+.editor-inspector__range {
+  width: 100%;
+  accent-color: var(--color-primary);
+}
+
+/* Destructive action button */
+.editor-inspector__button--danger {
+  color: var(--color-error);
+}
+
+.editor-inspector__button--danger:hover {
+  background: var(--color-surface-secondary);
+}
+
+/* Counter-clockwise rotate icon */
+.editor-inspector__icon-flip {
+  transform: scaleX(-1);
+}

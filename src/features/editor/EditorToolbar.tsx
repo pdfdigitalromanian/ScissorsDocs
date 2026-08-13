@@ -3,11 +3,14 @@
  * Rendered by the viewer only while edit mode is active. Contextual style
  * and arrange controls live in the right-side Inspector panel.
  */
+import { useState } from 'react'
 import IconButton from '@/components/ui/IconButton'
 import { Icon } from '@/components/icons/Icon'
 import type { IconName } from '@/components/icons/Icon'
 import type { EditorTool } from './elements'
 import { usePdfEditor } from './PdfEditorProvider'
+import { useSettings } from '@/features/settings/SettingsProvider'
+import { ConfirmDialog } from './components/ConfirmDialog'
 import './editor.css'
 
 const TOOLS: Array<{ tool: EditorTool; icon: IconName; label: string }> = [
@@ -31,8 +34,19 @@ export function EditorToolbar() {
     deleteElements,
     clearElementSelection,
   } = usePdfEditor()
+  const { settings } = useSettings()
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const hasSelection = selectedElementIds.length > 0
+
+  const requestDelete = () => {
+    if (settings.general.deleteConfirmation) {
+      setConfirmDelete(true)
+      return
+    }
+    void deleteElements(selectedElementIds)
+    clearElementSelection()
+  }
 
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Edit tools">
@@ -79,10 +93,7 @@ export function EditorToolbar() {
           label="Delete selected"
           iconSize="sm"
           disabled={!hasSelection}
-          onClick={() => {
-            void deleteElements(selectedElementIds)
-            clearElementSelection()
-          }}
+          onClick={requestDelete}
         />
       </div>
 
@@ -106,6 +117,21 @@ export function EditorToolbar() {
           Drag on a page to draw
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete selected objects?"
+        description={`${selectedElementIds.length} object${
+          selectedElementIds.length === 1 ? '' : 's'
+        } will be removed from the document.`}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          setConfirmDelete(false)
+          void deleteElements(selectedElementIds)
+          clearElementSelection()
+        }}
+        onClose={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }

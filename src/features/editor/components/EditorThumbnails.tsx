@@ -8,7 +8,9 @@ import { useToast } from '@/components/ui'
 import { downloadBlob } from '@/features/documents'
 import { computeReorder } from '../engine'
 import { usePdfEditor } from '../PdfEditorProvider'
+import { useSettings } from '@/features/settings/SettingsProvider'
 import { EditorDialogs } from './EditorDialogs'
+import { ConfirmDialog } from './ConfirmDialog'
 import type { EditorDialogId } from './EditorDialogs'
 import '../editor.css'
 
@@ -139,6 +141,7 @@ export function EditorThumbnails() {
   const editor = usePdfEditor()
   const session = usePdfSession()
   const { toast } = useToast()
+  const { settings } = useSettings()
   const [dialog, setDialog] = useState<EditorDialogId | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const pendingPointerRef = useRef<{
@@ -158,6 +161,15 @@ export function EditorThumbnails() {
   const selectionCount = editor.selectedPageIds.length
   const busy = editor.busy
   const selectionDisabled = busy || selectionCount === 0
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const requestDeletePages = () => {
+    if (settings.general.deleteConfirmation) {
+      setConfirmDelete(true)
+      return
+    }
+    void editor.deleteSelected()
+  }
 
   const handleSelect = (
     pageId: string,
@@ -457,7 +469,7 @@ export function EditorThumbnails() {
             icon="trash"
             label="Delete pages"
             disabled={selectionDisabled}
-            onClick={() => void editor.deleteSelected()}
+            onClick={requestDeletePages}
           />
           <IconButton
             icon="scissors"
@@ -518,6 +530,19 @@ export function EditorThumbnails() {
         </div>
       </div>
       <EditorDialogs dialog={dialog} onClose={() => setDialog(null)} />
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete selected pages?"
+        description={`${selectionCount} page${
+          selectionCount === 1 ? '' : 's'
+        } will be removed from the document.`}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          setConfirmDelete(false)
+          void editor.deleteSelected()
+        }}
+        onClose={() => setConfirmDelete(false)}
+      />
     </>
   )
 }

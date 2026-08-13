@@ -15,7 +15,7 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './store'
 export type SettingsPatch = {
   general?: Partial<AppSettings['general']>
   viewer?: Partial<AppSettings['viewer']>
-  editor?: Partial<AppSettings['editor']> & {
+  editor?: Partial<Omit<AppSettings['editor'], 'text' | 'shape'>> & {
     text?: Partial<AppSettings['editor']['text']>
     shape?: Partial<AppSettings['editor']['shape']>
   }
