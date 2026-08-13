@@ -1,0 +1,412 @@
+Continue from Phase 3.4.
+
+This milestone is a correction and quality pass over the existing PDF workspace. Do not simply add more features. Audit the current implementation and fix the interactions below so the editor feels like a proper production document editor rather than a basic prototype.
+
+Do not replace working architecture unnecessarily. Fix the existing document model, coordinate system, rendering, interaction, and history systems where possible.
+
+--------------------------------------------------
+1. PAGE REORDERING
+--------------------------------------------------
+
+The page panel currently has Move Up / Move Down controls.
+
+Keep those controls, but also implement proper drag-and-drop page reordering.
+
+Requirements:
+
+- Drag a page thumbnail to another position.
+- Show a clear insertion indicator while dragging.
+- Allow dragging to the beginning/end of the document.
+- Update the actual document page order.
+- Keep thumbnails synchronized with the new order.
+- Preserve the selected page correctly.
+- Make the new order survive save/reopen.
+- Export the PDF using the new page order.
+- Undo/redo page reordering as one logical operation.
+
+The implementation should be reusable later for a grid-based page layout. Do not build the grid layout yet.
+
+--------------------------------------------------
+2. SHAPE MANIPULATION
+--------------------------------------------------
+
+Fix shape manipulation so it behaves predictably.
+
+Every resizable shape must have working corner handles:
+
+- Top-left
+- Top-right
+- Bottom-left
+- Bottom-right
+
+Requirements:
+
+- Dragging a corner changes width and height correctly.
+- The opposite corner behaves as the appropriate anchor.
+- Resizing works at different zoom levels.
+- Resizing works after rotation.
+- Shapes must not unexpectedly jump.
+- Minimum dimensions must be enforced.
+- Negative/inverted dimensions must not corrupt the element.
+
+If modifier-key proportional resizing is supported by the current interaction model, make it behave consistently. Do not introduce inconsistent shortcuts.
+
+--------------------------------------------------
+3. FIGMA-LIKE ROTATION
+--------------------------------------------------
+
+Fix rotation for editable elements so it feels stable and predictable.
+
+Rotation should:
+
+- Use a visible rotation handle.
+- Rotate around the element's actual center.
+- Follow the pointer naturally.
+- Preserve the element's position.
+- Work correctly at different zoom levels.
+- Work correctly after resizing.
+- Work correctly for images and shapes.
+- Not cause jumping or sudden angle changes.
+
+Do not implement rotation using screen-space assumptions that break when zoom or page scale changes.
+
+Use the document/page coordinate system as the source of truth.
+
+--------------------------------------------------
+4. IMAGE RESIZING
+--------------------------------------------------
+
+Fix image manipulation.
+
+Images must:
+
+- Resize from corner handles correctly.
+- Preserve aspect ratio by default where appropriate.
+- Avoid unexpected stretching.
+- Maintain their correct center/position.
+- Rotate correctly.
+- Remain aligned with the PDF coordinate system.
+- Export at the same visual size and position shown in the editor.
+
+Test image manipulation at multiple zoom levels and on different page sizes.
+
+--------------------------------------------------
+5. TEXT INSERTION
+--------------------------------------------------
+
+Fix text insertion.
+
+Users must actually be able to create text inside the PDF workspace.
+
+The workflow should feel natural:
+
+1. Choose the text tool.
+2. Click/tap the page.
+3. A text editing state appears.
+4. User can type immediately.
+5. Text appears at the selected PDF location.
+6. User can finish editing.
+7. The text becomes a normal editable document element.
+
+Support at minimum:
+
+- Typing
+- Multi-line text
+- Cursor movement
+- Backspace/delete
+- Enter/new lines
+- Selection where supported
+- Moving the text box
+- Resizing the text box where appropriate
+- Editing existing inserted text
+- Deleting text
+
+Do not rely on a broken or hidden input element that makes typing feel disconnected from the document.
+
+The editing interaction should clearly communicate when the user is typing versus manipulating the text element.
+
+--------------------------------------------------
+6. TEXT EDITING
+--------------------------------------------------
+
+Audit existing text editing.
+
+If the application currently allows editing text elements created by ScissorsDoc, make sure the experience is consistent with newly inserted text.
+
+For existing PDF text, only provide direct editing where the underlying PDF technology can actually support it.
+
+Do not fake editing by visually covering text while leaving the original content underneath unless the operation is explicitly treated as an overlay/redaction-style workflow.
+
+Exported PDFs must reflect the actual intended result.
+
+--------------------------------------------------
+7. SELECTION & TRANSFORMS
+--------------------------------------------------
+
+Unify the interaction behavior for:
+
+- Text
+- Images
+- Shapes
+- Annotations
+
+Selection should have consistent:
+
+- Bounding box
+- Handles
+- Movement
+- Resize
+- Rotation
+- Delete
+- Duplicate where already supported
+
+Transformations must use the same coordinate conversion system.
+
+Fix any existing discrepancies where one element behaves differently from another without a technical reason.
+
+--------------------------------------------------
+8. ZOOM
+--------------------------------------------------
+
+Audit the editor at multiple zoom levels.
+
+Test at:
+
+- Very small zoom
+- 50%
+- 100%
+- 150%
+- Large zoom
+
+Verify:
+
+- Selection boxes remain aligned.
+- Handles remain aligned.
+- Dragging moves elements accurately.
+- Resizing remains accurate.
+- Rotation remains accurate.
+- Text placement remains accurate.
+
+Changing zoom must never change the actual document coordinates of an element.
+
+--------------------------------------------------
+9. FIT TO WIDTH
+--------------------------------------------------
+
+Fix Fit to Width so it actually fits the PDF page width to the available workspace.
+
+It must account for:
+
+- Available viewport width
+- Sidebars/panels
+- Page margins
+- Current UI layout
+
+The resulting page should use the available horizontal space appropriately without unnecessarily cutting off the page.
+
+Changing window size should allow the fit calculation to update correctly.
+
+--------------------------------------------------
+10. FIT TO PAGE
+--------------------------------------------------
+
+Fix Fit to Page so the complete PDF page is visible within the available workspace.
+
+It should account for both:
+
+- Available width
+- Available height
+
+The page should remain completely visible without unnecessary clipping.
+
+It must work for:
+
+- Portrait pages
+- Landscape pages
+- Different page sizes
+- Different viewport sizes
+- Mobile screens
+
+--------------------------------------------------
+11. CONTINUOUS SCROLL
+--------------------------------------------------
+
+Fix continuous page mode.
+
+When enabled:
+
+- Multiple pages should appear vertically in one scrollable document view.
+- Pages should maintain appropriate spacing.
+- Scrolling should feel natural.
+- Page rendering should remain performant.
+- The active/current page should update appropriately while scrolling.
+- Navigation to a selected page should scroll to that page.
+
+Do not implement a fake continuous mode where only one page is actually rendered at a time.
+
+Use virtualization/lazy rendering where necessary for large documents.
+
+--------------------------------------------------
+12. SINGLE-PAGE MODE
+--------------------------------------------------
+
+Fix single-page mode.
+
+When enabled:
+
+- One page should be displayed as the primary document view.
+- Previous/next navigation should work reliably.
+- Page changes should update the selected page.
+- Zoom should remain stable.
+- The current page should not unexpectedly reset after edits.
+
+Switching between single-page and continuous modes must preserve the user's document position as reasonably as possible.
+
+--------------------------------------------------
+13. VIEW MODE TRANSITIONS
+--------------------------------------------------
+
+Switching between:
+
+- Single Page
+- Continuous
+- Fit to Width
+- Fit to Page
+- Manual Zoom
+
+must not:
+
+- Reset the document unexpectedly.
+- Lose the current page.
+- Break selection coordinates.
+- Move document elements.
+- Cause visible page jumps beyond what is necessary for the new layout.
+
+These are different viewing behaviors, not separate document states.
+
+--------------------------------------------------
+14. PAGE ROTATION & VIEWING
+--------------------------------------------------
+
+Verify that page rotation interacts correctly with:
+
+- Zoom
+- Fit to Width
+- Fit to Page
+- Continuous scrolling
+- Single-page mode
+- Text
+- Images
+- Shapes
+- Annotations
+
+The page coordinate system and editor coordinate system must remain consistent.
+
+--------------------------------------------------
+15. UNDO / REDO
+--------------------------------------------------
+
+Make sure the fixes in this milestone integrate with the existing history system.
+
+A completed user action should normally create one logical history entry.
+
+Examples:
+
+- Drag page → one entry
+- Resize shape → one entry
+- Rotate image → one entry
+- Move text → one entry
+- Complete text insertion → one entry
+
+Do not create an entry for every pointer movement.
+
+--------------------------------------------------
+16. VISUAL QUALITY
+--------------------------------------------------
+
+The workspace should feel deliberate and professional.
+
+Use the existing design system.
+
+Take inspiration from the simplicity of established PDF tools such as iLovePDF where useful, but do not copy their interface.
+
+The default experience should remain a large, focused PDF workspace.
+
+Do NOT implement the alternative grid page layout in this milestone.
+
+However, do not hard-code the page panel architecture in a way that prevents a future grid layout preference from being added.
+
+--------------------------------------------------
+17. REAL EXPORT VALIDATION
+--------------------------------------------------
+
+Use real PDFs and verify the complete workflow:
+
+Open PDF
+→ reorder pages
+→ add text
+→ edit text
+→ add image
+→ resize image
+→ rotate image
+→ add shape
+→ resize shape
+→ rotate shape
+→ annotate
+→ save
+→ export
+→ reopen exported PDF
+
+The exported PDF must reflect the actual document state.
+
+Do not consider an editor overlay sufficient evidence that an operation works.
+
+--------------------------------------------------
+18. MOBILE VALIDATION
+--------------------------------------------------
+
+Test the important interactions on touch devices:
+
+- Page drag/reorder
+- Text insertion
+- Text editing
+- Image manipulation
+- Shape manipulation
+- Rotation
+- Zoom
+- Single page
+- Continuous scroll
+- Fit to width
+- Fit to page
+
+Do not let editing gestures make normal document navigation unusable.
+
+--------------------------------------------------
+19. FINAL AUDIT
+--------------------------------------------------
+
+Before finishing, test with:
+
+- Small PDF
+- Large PDF
+- Multi-page PDF
+- Portrait PDF
+- Landscape PDF
+- Different page sizes
+- Scanned/image-heavy PDF
+- PDF with existing annotations
+
+Fix issues discovered during the audit.
+
+Do not add:
+
+- Backend
+- Supabase
+- Cloudflare R2
+- Authentication
+- AI
+- Payments
+
+This milestone is strictly about making the existing local PDF workspace and editor behave correctly.
+
+When complete, stop and wait for Phase 3.6.

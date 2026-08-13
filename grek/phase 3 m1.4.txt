@@ -1,0 +1,162 @@
+Continue from the completed Phase 3 — Milestone 3.3.
+
+Implement the annotation and markup layer using the existing PDF editor, document model, coordinate system, persistence, and undo/redo systems. Do not create parallel versions of those systems.
+
+OBJECTIVE
+
+Allow users to annotate and mark up real PDF documents, with the result preserved in the exported PDF.
+
+BUILD
+
+Implement:
+
+- Highlight
+- Underline
+- Strikethrough
+- Freehand drawing
+- Pen/ink
+- Rectangle
+- Circle/ellipse
+- Line
+- Arrow
+- Sticky note/comment
+- Text annotation
+
+Where the existing PDF technology reliably supports them, also implement:
+
+- Checkbox fields
+- Text fields
+- Radio buttons
+- Dropdown fields
+
+Do not advertise unsupported PDF features as working.
+
+TEXT MARKUP
+
+For highlight, underline, and strikethrough:
+
+- Use actual PDF text coordinates where available.
+- Allow selection of relevant text.
+- Keep markup aligned with the underlying text.
+- Preserve alignment when zooming, resizing, or reopening the document.
+
+Do not implement markup using screen coordinates that only happen to work at one zoom level.
+
+DRAWING
+
+Support freehand strokes with:
+
+- Stroke width
+- Stroke position
+- Appropriate stroke styling
+- Undo/redo
+- Delete
+
+A continuous drawing gesture should become one logical undo/redo action rather than hundreds of individual actions.
+
+SHAPES
+
+For rectangles, circles, lines, and arrows support:
+
+- Placement
+- Move
+- Resize
+- Delete
+- Styling where already supported by the design/editor
+
+Use the same page coordinate system and element model established in 3.3.
+
+ANNOTATION MODEL
+
+Create or extend the existing document model so annotations contain the data necessary to reproduce them in the PDF.
+
+Do not make the rendered UI the source of truth.
+
+Persist annotation state with the document's existing local persistence system.
+
+COMMENTS / NOTES
+
+Allow a user to attach a note/comment to a page or annotation.
+
+Persist its content and location locally.
+
+FORM FIELDS
+
+If supported reliably by the existing PDF library, allow users to interact with and edit supported form fields.
+
+Do not implement a fake form layer that disappears on export.
+
+If a PDF feature cannot safely be preserved or modified, handle it explicitly instead of silently corrupting the document.
+
+UNDO / REDO
+
+Integrate annotation operations with the existing history system.
+
+Verify:
+
+- Add → Undo
+- Undo → Redo
+- Move → Undo
+- Delete → Undo
+- Style change → Undo
+
+Do not create excessive history entries during continuous drawing or dragging.
+
+PDF OUTPUT
+
+Exported PDFs must contain the actual annotations/markup.
+
+Verify by reopening exported PDFs with the existing PDF engine.
+
+Do not accept an implementation where annotations are visible only inside the ScissorsDoc editor.
+
+COORDINATE ACCURACY
+
+Test annotations at:
+
+- Different zoom levels
+- Different page sizes
+- Rotated pages
+- Resized windows
+- Mobile portrait
+- Mobile landscape
+
+The annotation must remain attached to the correct PDF location.
+
+MOBILE
+
+Support touch interaction for:
+
+- Drawing
+- Selecting
+- Moving
+- Resizing
+- Deleting
+
+Make sure drawing does not unnecessarily interfere with page scrolling.
+
+VALIDATION
+
+Use real PDFs and verify:
+
+1. Highlight
+2. Underline
+3. Strikethrough
+4. Freehand drawing
+5. Shapes
+6. Arrows
+7. Notes/comments
+8. Supported form fields
+9. Move/resize/delete
+10. Undo/redo
+11. Local persistence
+12. Export
+13. Reopen exported PDF
+
+Check that the exported document contains the actual changes.
+
+Fix discovered issues before finishing.
+
+Do not add backend, cloud storage, or AI functionality here.
+
+When complete, stop and wait for Phase 3 — Milestone 3.5.

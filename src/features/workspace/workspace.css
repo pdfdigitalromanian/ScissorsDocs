@@ -49,11 +49,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-primary);
   pointer-events: none;
-  background-color: color-mix(
-    in srgb,
-    var(--color-surface) 86%,
-    transparent
-  );
+  background-color: color-mix(in srgb, var(--color-surface) 86%, transparent);
   border: 2px dashed var(--color-primary);
 }
 
@@ -305,6 +301,8 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
+  min-height: 0;
+  flex: 1 1 0;
   overflow-y: auto;
 }
 
@@ -337,6 +335,22 @@
   border: var(--border-divider);
   border-radius: var(--radius-md);
   background-color: var(--color-surface-secondary);
+}
+
+/* Regions that own their scrollable content (e.g. the thumbnail grid)
+   grow to fill the panel so their inner scroll area has a bounded height. */
+.panel-region--grow {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Placeholder regions that have no mounted content yet stay compact so
+   the growing regions keep as much room as possible. */
+.panel-region--reserved {
+  padding-block: var(--space-1) var(--space-2);
+}
+.panel-region--reserved .panel-region__hint {
+  display: none;
 }
 
 .panel-region__title {

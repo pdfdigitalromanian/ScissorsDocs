@@ -37,6 +37,11 @@ export type IconName =
   | 'alert-triangle'
   | 'annotation'
   | 'arrow-right'
+  | 'align-center'
+  | 'align-left'
+  | 'align-right'
+  | 'bold'
+  | 'circle'
   | 'compress'
   | 'convert'
   | 'edit'
@@ -46,12 +51,17 @@ export type IconName =
   | 'globe'
   | 'highlight'
   | 'image'
+  | 'italic'
+  | 'line'
   | 'lock'
   | 'merge'
   | 'optimize'
   | 'copy'
   | 'pin'
   | 'pin-off'
+  | 'pointer'
+  | 'square'
+  | 'text'
   | 'undo'
   | 'redo'
   | 'organize'
@@ -270,6 +280,34 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="m12 5 7 7-7 7" />
     </>
   ),
+  'align-center': (
+    <>
+      <line x1="18" x2="6" y1="6" y2="6" />
+      <line x1="20" x2="4" y1="12" y2="12" />
+      <line x1="18" x2="6" y1="18" y2="18" />
+    </>
+  ),
+  'align-left': (
+    <>
+      <line x1="21" x2="3" y1="6" y2="6" />
+      <line x1="15" x2="3" y1="12" y2="12" />
+      <line x1="17" x2="3" y1="18" y2="18" />
+    </>
+  ),
+  'align-right': (
+    <>
+      <line x1="21" x2="3" y1="6" y2="6" />
+      <line x1="21" x2="9" y1="12" y2="12" />
+      <line x1="21" x2="7" y1="18" y2="18" />
+    </>
+  ),
+  bold: (
+    <>
+      <path d="M6 4h8a4 4 0 0 1 0 8H6z" />
+      <path d="M6 12h9a4 4 0 0 1 0 8H6z" />
+    </>
+  ),
+  circle: <circle cx="12" cy="12" r="10" />,
   compress: (
     <>
       <path d="M8 3v3a2 2 0 0 1-2 2H3" />
@@ -327,6 +365,14 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
     </>
   ),
+  italic: (
+    <>
+      <line x1="19" x2="10" y1="4" y2="4" />
+      <line x1="14" x2="5" y1="20" y2="20" />
+      <line x1="15" x2="9" y1="4" y2="20" />
+    </>
+  ),
+  line: <line x1="5" x2="19" y1="12" y2="12" />,
   lock: (
     <>
       <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
@@ -341,6 +387,20 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   optimize: <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />,
+  pointer: (
+    <>
+      <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+      <path d="m13 13 6 6" />
+    </>
+  ),
+  square: <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />,
+  text: (
+    <>
+      <polyline points="4 7 4 4 20 4 20 7" />
+      <line x1="9" x2="15" y1="20" y2="20" />
+      <line x1="12" x2="12" y1="4" y2="20" />
+    </>
+  ),
   copy: (
     <>
       <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />

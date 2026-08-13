@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
 import type { PdfTextEdit } from '@/features/editor/model'
 import { pdfjs, renderPdfPageToCanvas } from './pdfjs'
@@ -17,6 +18,8 @@ interface PdfPageViewProps {
   textEditing?: boolean
   onTextEdit?: (edit: PdfTextEdit) => void
   onTextSelectionChange?: (selection: PdfTextSelectionController | null) => void
+  /** Rendered above the canvas, in the page's own coordinate space. */
+  overlay?: ReactNode
   className?: string
 }
 
@@ -121,6 +124,7 @@ export function PdfPageView({
   textEditing = false,
   onTextEdit,
   onTextSelectionChange,
+  overlay,
   className = '',
 }: PdfPageViewProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -196,6 +200,7 @@ export function PdfPageView({
       style={{ width: viewport.width, height: viewport.height }}
     >
       <canvas ref={setCanvas} className="pdf-page__canvas" aria-hidden="true" />
+      {overlay}
       {visible &&
       textEditing &&
       onTextEdit &&

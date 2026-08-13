@@ -39,6 +39,24 @@ import { editorFontFaceFile } from '@/features/pdf/text-format'
 /** A4 portrait size in points, used for blank pages without a reference. */
 export const A4_SIZE = { width: 595.28, height: 841.89 }
 
+/**
+ * Resizes a page to the given media box, keeping its content anchored at the
+ * top-left and updating the crop box so pdf.js renders the full page. The
+ * caller is responsible for re-anchoring elements after the size change.
+ */
+export function resizePage(
+  doc: PDFDocument,
+  index: number,
+  width: number,
+  height: number,
+): void {
+  const safeWidth = Math.max(1, width)
+  const safeHeight = Math.max(1, height)
+  const page = doc.getPage(index)
+  page.setSize(safeWidth, safeHeight)
+  page.setCropBox(0, 0, safeWidth, safeHeight)
+}
+
 export type EditorPdfErrorCode =
   'load' | 'unsupported' | 'insert' | 'replace' | 'extract' | 'split' | 'merge'
 
@@ -786,7 +804,7 @@ const DIRECT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg'])
  * directly (webp, gif, bmp, avif, svg, …). Returns null for formats that
  * pdf-lib embeds natively.
  */
-async function rasterizeToPngIfNeeded(
+export async function rasterizeToPngIfNeeded(
   bytes: Uint8Array,
   mime: string,
 ): Promise<Uint8Array | null> {
@@ -826,6 +844,29 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     image.onerror = () => reject(new Error('Image could not be decoded.'))
     image.src = url
   })
+}
+
+export function bytesToDataUrl(bytes: Uint8Array, mime: string): string {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  }
+  return `data:${mime};base64,${btoa(binary)}`
+}
+
+/**
+ * Converts an image file into a PNG/JPEG data URL for the element model.
+ * Formats pdf-lib cannot embed directly are rasterized to PNG first.
+ */
+export async function imageToElementDataUrl(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  if (file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/jpg') {
+    return bytesToDataUrl(bytes, file.type)
+  }
+  const png = await rasterizeToPngIfNeeded(bytes, file.type)
+  if (!png) throw new EditorPdfError('This image could not be embedded.', 'insert')
+  return bytesToDataUrl(png, 'image/png')
 }
 
 export type { PDFPage }

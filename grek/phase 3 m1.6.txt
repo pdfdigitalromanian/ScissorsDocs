@@ -1,0 +1,105 @@
+Continue from the completed Phase 3.5 and its correction.
+
+Implement the application's Settings system and clean up the editor's control organization.
+
+1. SETTINGS
+
+Create a proper Settings page/panel using the existing design system.
+
+Include only settings that are currently supported:
+
+- General 
+  - Theme: Light / Dark / System
+  - Auto-save
+  - Delete confirmation
+  - Startup behavior where supported
+
+- PDF Viewer
+  - Single Page / Continuous
+  - Default zoom behavior
+  - Fit to Width / Fit to Page
+  - Thumbnail/sidebar preferences where supported
+
+- Editor
+  - Default text settings
+  - Default annotation settings
+  - Default shape settings
+  - Measurement units where supported
+  - Snap/interaction preferences where supported
+
+- Workspace
+  - Current large workspace layout
+  - Prepare the architecture for a future Grid page layout, but DO NOT implement the grid layout yet.
+
+Settings must persist locally and actually affect the application.
+
+Do not add settings for backend, cloud, AI, payments, or authentication yet.
+
+2. EDITOR TOOLBAR + INSPECTOR
+
+Improve the current editor layout without removing the existing top toolbar.
+
+Keep important/frequently used editing tools and actions on the top toolbar.
+
+However, move excessive or contextual controls into the right-side Inspector where they make more sense.
+
+Examples of controls that can move to the Inspector:
+
+- Forward / Backward
+- Object-specific properties
+- Detailed position/size controls
+- Detailed appearance controls
+- Other secondary controls that currently overcrowd the toolbar
+
+Keep the top toolbar focused on primary editing actions.
+
+The Inspector should be contextual:
+
+- Shape selected → shape properties
+- Image selected → image properties
+- Text selected → text properties
+- Annotation selected → annotation properties
+- Nothing selected → appropriate empty/document state
+
+Do not duplicate controls unnecessarily between the toolbar and Inspector.
+
+3. UX QUALITY
+
+Improve:
+
+- Spacing
+- Grouping
+- Visual hierarchy
+- Discoverability
+- Toolbar density
+- Inspector organization
+
+Do not remove existing functionality.
+
+Do not redesign the entire editor.
+
+Reuse the current components and functionality wherever possible.
+
+4. VALIDATION
+
+Verify:
+
+- Settings persist after refresh/reopen.
+- Settings actually affect the relevant features.
+- Top toolbar remains useful and uncluttered.
+- Inspector appears correctly when selecting objects.
+- Existing editing interactions still work.
+- Moving controls does not break their functionality.
+- Desktop and mobile layouts remain usable.
+
+Do not implement:
+
+- Backend
+- Supabase
+- Cloudflare
+- Authentication
+- AI
+- Payments
+- Online conversions
+
+When complete, stop and wait for Phase 4.

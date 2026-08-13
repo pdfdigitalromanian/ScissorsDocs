@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DragEvent, ReactNode } from 'react'
 import { PdfSessionProvider } from '@/features/pdf'
 import {
   PdfEditorProvider,
   usePdfEditor,
 } from '@/features/editor/PdfEditorProvider'
+import { stripElementStreamsFromBytes } from '@/features/editor/element-pdf'
 import { ingestFiles, useLocalDocumentBlob } from '@/features/documents'
 import { getLocalDocument, touchDocument } from '@/features/documents'
 import { useToast } from '@/components/ui'
@@ -29,9 +30,16 @@ interface WorkspaceAreaProps {
 }
 
 /**
- * PdfSessionHost loads the active local PDF's file blob and shares the
- * pdf.js session with the main viewer and the thumbnail panel. Other
- * session types receive an empty (idle) session.
+ * EditorSessionHost feeds the editable blob to the shared pdf.js session.
+ *
+ * Structural edits (page insert/delete/reorder/rotate, undo/redo) refresh
+ * the session immediately so the viewer and thumbnails stay synchronized.
+ * While edit mode is ON the session receives a copy of the current bytes
+ * with every tagged element content stream stripped, so the live element
+ * overlay is the only thing painting the elements — otherwise the baked
+ * element copy stays visible under the overlay as a ghost duplicate that
+ * never tracks the dragged element. When edit mode is switched off the
+ * baked blob (elements drawn into the page) is fed in instead.
  */
 function EditorSessionHost({
   documentId,
@@ -43,13 +51,69 @@ function EditorSessionHost({
   children: ReactNode
 }) {
   const editor = usePdfEditor()
-  // Feed the editable blob to the viewer once the editor is ready so the
-  // session always reflects edits. Fall back to the stored file while the
-  // editor loads or when it cannot load (read-only view).
-  const blob = editor.status === 'ready' ? editor.blob : storedBlob
+  const stripRequestRef = useRef(0)
+  const [stripped, setStripped] = useState<{
+    documentId: string | undefined
+    version: number
+    blob: Blob
+  } | null>(null)
+
+  /* Drop the stripped-bytes cache when the document changes so the next
+   * edit session recomputes it from the new document's bytes. */
+  const [documentKey, setDocumentKey] = useState<{
+    id: string | undefined
+    seen: boolean
+  }>({ id: undefined, seen: false })
+  if (!documentKey.seen || documentKey.id !== documentId) {
+    setDocumentKey({ id: documentId, seen: true })
+    setStripped(null)
+  }
+
+  const editingActive =
+    editor.status === 'ready' && editor.editMode && editor.blob !== null
+
+  const sessionBlob =
+    editingActive &&
+    stripped &&
+    stripped.documentId === documentId &&
+    stripped.version === editor.structuralVersion
+      ? stripped.blob
+      : editor.status === 'ready' && editor.blob
+        ? editor.blob
+        : storedBlob
+
+  useEffect(() => {
+    if (
+      editor.status !== 'ready' ||
+      !editor.editMode ||
+      !editor.blob ||
+      (stripped &&
+        stripped.documentId === documentId &&
+        stripped.version === editor.structuralVersion)
+    ) {
+      return
+    }
+    const request = ++stripRequestRef.current
+    const source = editor.blob
+    void (async () => {
+      try {
+        const bytes = await stripElementStreamsFromBytes(
+          new Uint8Array(await source.arrayBuffer()),
+        )
+        if (request !== stripRequestRef.current) return
+        setStripped({
+          documentId,
+          version: editor.structuralVersion,
+          blob: new Blob([bytes as BlobPart], { type: 'application/pdf' }),
+        })
+      } catch {
+        // The baked blob stays; the overlay renders the live elements.
+      }
+    })()
+  }, [editor.status, editor.editMode, editor.blob, editor.structuralVersion, documentId, stripped])
 
   return (
-    <PdfSessionProvider documentId={documentId} blob={blob}>
+    <PdfSessionProvider documentId={documentId} blob={sessionBlob}>
       {children}
     </PdfSessionProvider>
   )

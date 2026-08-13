@@ -11,8 +11,25 @@ import type { ReactNode } from 'react'
 import type { PDFDocument } from 'pdf-lib'
 import type { LocalDocument } from '@/features/documents'
 import { downloadBlob, saveDocumentFile } from '@/features/documents'
+import { useSettings } from '@/features/settings/SettingsProvider'
 import * as engine from './engine'
 import { ByteHistory } from './history'
+import {
+  readElementsFromDoc,
+  stripElementStreams,
+  writeElementsToDoc,
+  drawElements,
+} from './element-pdf'
+import {
+  createElementId,
+  duplicateElementsForPages,
+  remapElementsAfterDelete,
+  remapElementsAfterInsert,
+  remapElementsAfterPageRotate,
+  remapElementsAfterReorder,
+  remapElementsAfterReplace,
+} from './elements'
+import type { EditorTool, PdfElement } from './elements'
 import type {
   EditorPage,
   EditorSaveState,
@@ -39,6 +56,8 @@ interface PdfEditorContextValue {
   documentId: string | null
   /** The current editable PDF blob — regenerated after every edit. */
   blob: Blob | null
+  /** Bumps on structural changes only (page ops, undo/redo) — not element edits. */
+  structuralVersion: number
   numPages: number
   pages: EditorPage[]
   selectedPageIds: string[]
@@ -46,6 +65,32 @@ interface PdfEditorContextValue {
   canRedo: boolean
   saveState: EditorSaveState
   busy: boolean
+  /** Editable elements (text, image, shape) across all pages. */
+  elements: PdfElement[]
+  editMode: boolean
+  tool: EditorTool
+  selectedElementIds: string[]
+  setEditMode: (enabled: boolean) => void
+  setTool: (tool: EditorTool) => void
+  selectElement: (id: string) => void
+  toggleElement: (id: string) => void
+  clearElementSelection: () => void
+  addElement: (element: PdfElement, coalesce?: boolean) => Promise<void>
+  updateElement: (
+    id: string,
+    patch: Partial<PdfElement>,
+    coalesce?: boolean,
+  ) => Promise<void>
+  deleteElements: (ids: string[]) => Promise<void>
+  duplicateElements: (ids: string[]) => Promise<void>
+  commitElements: (
+    update: (elements: PdfElement[]) => PdfElement[],
+    coalesce?: boolean,
+  ) => Promise<void>
+  moveElementToLayer: (
+    id: string,
+    direction: 'forward' | 'backward' | 'front' | 'back',
+  ) => Promise<void>
   selectPage: (id: string) => void
   togglePage: (id: string) => void
   selectRange: (id: string) => void
@@ -57,6 +102,7 @@ interface PdfEditorContextValue {
   duplicateSelected: () => Promise<void>
   moveSelected: (toIndex: number) => Promise<void>
   moveSelectedBy: (delta: number) => Promise<void>
+  resizePage: (id: string, width: number, height: number) => Promise<void>
   insertPdfFiles: (files: File[], atIndex?: number) => Promise<void>
   insertImageFiles: (files: File[], atIndex?: number) => Promise<void>
   insertBlankPage: (atIndex?: number) => Promise<void>
@@ -91,6 +137,8 @@ export function PdfEditorProvider({
   children,
 }: PdfEditorProviderProps) {
   const documentId = document?.id ?? null
+  const { settings } = useSettings()
+  const autoSaveEnabled = settings.general.autoSave
   const [status, setStatus] = useState<EditorStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [bytes, setBytes] = useState<Uint8Array | null>(null)
@@ -102,10 +150,21 @@ export function PdfEditorProvider({
     canUndo: false,
     canRedo: false,
   })
+  const [elements, setElements] = useState<PdfElement[]>([])
+  const [editMode, setEditModeState] = useState(false)
+  const [tool, setToolState] = useState<EditorTool>('select')
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([])
+  /**
+   * Increments only on structural changes (page insert/delete/reorder/
+   * rotate, undo/redo) — never on element edits. The viewer uses it to
+   * avoid reloading the pdf.js document for pure element gestures.
+   */
+  const [structuralVersion, setStructuralVersion] = useState(0)
 
   const docRef = useRef<PDFDocument | null>(null)
   const bytesRef = useRef<Uint8Array | null>(null)
   const pagesRef = useRef<EditorPage[]>([])
+  const elementsRef = useRef<PdfElement[]>([])
   const historyRef = useRef(new ByteHistory(HISTORY_CAPACITY))
   const anchorIdRef = useRef<string | null>(null)
   const saveStateRef = useRef<EditorSaveState>('saved')
@@ -135,12 +194,21 @@ export function PdfEditorProvider({
     setBytes(null)
     setPages([])
     setSelectedPageIds([])
+    setElements([])
+    setSelectedElementIds([])
+    setEditModeState(false)
+    setToolState('select')
     setSaveState('saved')
     setBusy(false)
     setError(null)
     setHistoryState({ canUndo: false, canRedo: false })
+    setStructuralVersion(0)
     setStatus(documentId !== null && blob !== null ? 'loading' : 'idle')
   }
+
+  useEffect(() => {
+    elementsRef.current = []
+  }, [sessionKey])
 
   const viewBlob = useMemo(
     () =>
@@ -158,6 +226,7 @@ export function PdfEditorProvider({
       docRef.current = null
       bytesRef.current = null
       pagesRef.current = []
+      elementsRef.current = []
       historyRef.current.clear()
       anchorIdRef.current = null
       sessionRef.current = { id: null, bytes: null, dirty: false }
@@ -171,16 +240,20 @@ export function PdfEditorProvider({
         const loadedBytes = new Uint8Array(await blob.arrayBuffer())
         const loaded = await engine.loadPdf(loadedBytes)
         if (cancelled) return
+        const loadedElements = readElementsFromDoc(loaded)
         docRef.current = loaded
         bytesRef.current = loadedBytes
         pagesRef.current = engine.describePages(loaded)
+        elementsRef.current = loadedElements
         historyRef.current.clear()
         anchorIdRef.current = null
         sessionRef.current = { id, bytes: loadedBytes, dirty: false }
         setHistoryState({ canUndo: false, canRedo: false })
+        setElements(loadedElements)
         setBytes(loadedBytes)
         setPages(pagesRef.current)
         setSelectedPageIds([])
+        setSelectedElementIds([])
         setSaveState('saved')
         setStatus('ready')
       } catch (reason) {
@@ -231,6 +304,7 @@ export function PdfEditorProvider({
   }, [document])
 
   useEffect(() => {
+    if (!autoSaveEnabled) return
     if (status !== 'ready' || saveState !== 'unsaved') return
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => {
@@ -242,7 +316,7 @@ export function PdfEditorProvider({
         saveTimerRef.current = null
       }
     }
-  }, [status, saveState, bytes, save])
+  }, [status, saveState, bytes, save, autoSaveEnabled])
 
   /* ------------------------------------------------------------------ *
    * Selection
@@ -288,6 +362,168 @@ export function PdfEditorProvider({
     setSelectedPageIds([])
   }, [])
 
+  /* ------------------------------------------------------------------ *
+   * Element editing
+   * ------------------------------------------------------------------ */
+
+  const setEditMode = useCallback((enabled: boolean) => {
+    setEditModeState(enabled)
+    if (!enabled) {
+      setSelectedElementIds([])
+      setToolState('select')
+    }
+  }, [])
+
+  const selectElement = useCallback((id: string) => {
+    setSelectedElementIds([id])
+  }, [])
+
+  const toggleElement = useCallback((id: string) => {
+    setSelectedElementIds((previous) =>
+      previous.includes(id)
+        ? previous.filter((entry) => entry !== id)
+        : [...previous, id],
+    )
+  }, [])
+
+  const clearElementSelection = useCallback(() => {
+    setSelectedElementIds([])
+  }, [])
+
+  const commitElements = useCallback(
+    async (
+      update: (elements: PdfElement[]) => PdfElement[],
+      coalesce = false,
+    ): Promise<void> => {
+      const previousBytes = bytesRef.current
+      if (!previousBytes || status !== 'ready') return
+      const nextElements = update(elementsRef.current)
+      if (nextElements === elementsRef.current) return
+      setBusy(true)
+      try {
+        const nextDoc = await engine.loadPdf(previousBytes)
+        stripElementStreams(nextDoc)
+        writeElementsToDoc(nextDoc, nextElements)
+        if (nextElements.length > 0) {
+          await drawElements(nextDoc, nextElements)
+        }
+        const nextBytes = await engine.serializePdf(nextDoc)
+        historyRef.current.commit(previousBytes, coalesce)
+        docRef.current = nextDoc
+        bytesRef.current = nextBytes
+        elementsRef.current = nextElements
+        pagesRef.current = engine.describePages(nextDoc)
+        sessionRef.current = {
+          id: document?.id ?? null,
+          bytes: nextBytes,
+          dirty: true,
+        }
+        setElements(nextElements)
+        setSelectedElementIds((previous) =>
+          previous.filter((id) =>
+            nextElements.some((element) => element.id === id),
+          ),
+        )
+        setBytes(nextBytes)
+        setPages(pagesRef.current)
+        setSaveState('unsaved')
+        setHistoryState({ canUndo: true, canRedo: false })
+      } finally {
+        setBusy(false)
+      }
+    },
+    [document, status],
+  )
+
+  const addElement = useCallback(
+    (element: PdfElement, coalesce = false) =>
+      commitElements((elements) => [...elements, element], coalesce),
+    [commitElements],
+  )
+
+  const updateElement = useCallback(
+    (id: string, patch: Partial<PdfElement>, coalesce = false) =>
+      commitElements(
+        (elements) =>
+          elements.map((element) =>
+            element.id === id
+              ? ({ ...element, ...patch } as PdfElement)
+              : element,
+          ),
+        coalesce,
+      ),
+    [commitElements],
+  )
+
+  const deleteElements = useCallback(
+    (ids: string[]) => {
+      const idSet = new Set(ids)
+      return commitElements((elements) =>
+        elements.filter((element) => !idSet.has(element.id)),
+      )
+    },
+    [commitElements],
+  )
+
+  const duplicateElements = useCallback(
+    async (ids: string[]) => {
+      let createdIds: string[] = []
+      await commitElements((elements) => {
+        const idSet = new Set(ids)
+        const maxZ = elements.reduce(
+          (max, element) => Math.max(max, element.zIndex),
+          0,
+        )
+        const copies: PdfElement[] = []
+        let offset = 1
+        for (const element of elements) {
+          if (!idSet.has(element.id)) continue
+          copies.push({
+            ...element,
+            id: createElementId(),
+            x: element.x + 24,
+            y: element.y + 24,
+            zIndex: maxZ + offset,
+          })
+          offset += 1
+        }
+        createdIds = copies.map((copy) => copy.id)
+        return copies.length > 0 ? [...elements, ...copies] : elements
+      })
+      if (createdIds.length > 0) {
+        setSelectedElementIds(createdIds)
+      }
+    },
+    [commitElements],
+  )
+
+  const moveElementToLayer = useCallback(
+    (id: string, direction: 'forward' | 'backward' | 'front' | 'back') =>
+      commitElements((elements) => {
+        const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex)
+        const index = sorted.findIndex((element) => element.id === id)
+        if (index === -1) return elements
+        const target =
+          direction === 'front'
+            ? sorted.length - 1
+            : direction === 'back'
+              ? 0
+              : direction === 'forward'
+                ? index + 1
+                : index - 1
+        if (target < 0 || target >= sorted.length || target === index)
+          return elements
+        const [moved] = sorted.splice(index, 1)
+        sorted.splice(target, 0, moved)
+        return sorted.map((element, position) =>
+          element.zIndex === position + 1
+            ? element
+            : { ...element, zIndex: position + 1 },
+        )
+      }),
+    [commitElements],
+  )
+
   const selectedIndices = useCallback((): number[] => {
     const positions = new Map(
       pagesRef.current.map((page) => [page.id, page.index]),
@@ -318,6 +554,7 @@ export function PdfEditorProvider({
   const applyMutation = useCallback(
     async (
       mutate: (doc: PDFDocument) => void | Promise<void>,
+      reconcile?: (elements: readonly PdfElement[]) => PdfElement[],
     ): Promise<void> => {
       const previousBytes = bytesRef.current
       if (!previousBytes || status !== 'ready') return
@@ -325,20 +562,36 @@ export function PdfEditorProvider({
       try {
         const nextDoc = await engine.loadPdf(previousBytes)
         await mutate(nextDoc)
+        const nextElements = reconcile
+          ? reconcile(elementsRef.current)
+          : elementsRef.current
+        stripElementStreams(nextDoc)
+        writeElementsToDoc(nextDoc, nextElements)
+        if (nextElements.length > 0) {
+          await drawElements(nextDoc, nextElements)
+        }
         const nextBytes = await engine.serializePdf(nextDoc)
         historyRef.current.commit(previousBytes)
         docRef.current = nextDoc
         bytesRef.current = nextBytes
+        elementsRef.current = nextElements
         pagesRef.current = engine.describePages(nextDoc)
         sessionRef.current = {
           id: document?.id ?? null,
           bytes: nextBytes,
           dirty: true,
         }
+        setElements(nextElements)
+        setSelectedElementIds((previous) =>
+          previous.filter((id) =>
+            nextElements.some((element) => element.id === id),
+          ),
+        )
         setBytes(nextBytes)
         setPages(pagesRef.current)
         setSaveState('unsaved')
         setHistoryState({ canUndo: true, canRedo: false })
+        setStructuralVersion((version) => version + 1)
       } finally {
         setBusy(false)
       }
@@ -351,18 +604,27 @@ export function PdfEditorProvider({
       setBusy(true)
       try {
         const loaded = await engine.loadPdf(nextBytes)
+        const loadedElements = readElementsFromDoc(loaded)
         docRef.current = loaded
         bytesRef.current = nextBytes
         pagesRef.current = engine.describePages(loaded)
+        elementsRef.current = loadedElements
         sessionRef.current = {
           id: document?.id ?? null,
           bytes: nextBytes,
           dirty: true,
         }
+        setElements(loadedElements)
+        setSelectedElementIds((previous) =>
+          previous.filter((id) =>
+            loadedElements.some((element) => element.id === id),
+          ),
+        )
         setBytes(nextBytes)
         setPages(pagesRef.current)
         setSaveState('unsaved')
         trimSelection()
+        setStructuralVersion((version) => version + 1)
       } finally {
         setBusy(false)
       }
@@ -402,7 +664,28 @@ export function PdfEditorProvider({
     async (direction: RotationDirection) => {
       const indices = selectedIndices()
       if (indices.length === 0) return
-      await applyMutation((doc) => engine.rotatePages(doc, indices, direction))
+      const rotationByIndex = new Map(
+        pagesRef.current.map((page) => [page.index, page.rotation]),
+      )
+      await applyMutation(
+        (doc) => engine.rotatePages(doc, indices, direction),
+        (elements) => {
+          let next = [...elements]
+          for (const index of indices) {
+            const page = pagesRef.current[index]
+            if (!page) continue
+            next = remapElementsAfterPageRotate(
+              next,
+              index,
+              direction,
+              page.width,
+              page.height,
+              rotationByIndex.get(index) ?? 0,
+            )
+          }
+          return next
+        },
+      )
     },
     [applyMutation, selectedIndices],
   )
@@ -417,21 +700,31 @@ export function PdfEditorProvider({
   const deleteSelected = useCallback(async () => {
     const indices = selectedIndices()
     if (indices.length === 0) return
-    await applyMutation((doc) => engine.deletePages(doc, indices))
+    await applyMutation(
+      (doc) => engine.deletePages(doc, indices),
+      (elements) => remapElementsAfterDelete(elements, indices),
+    )
     trimSelection()
   }, [applyMutation, selectedIndices])
 
   const duplicateSelected = useCallback(async () => {
     const indices = selectedIndices()
     if (indices.length === 0) return
-    await applyMutation((doc) => engine.duplicatePages(doc, indices))
-    const copies: string[] = []
+    const copies = indices.map((originalIndex, offset) => ({
+      from: originalIndex,
+      to: originalIndex + offset + 1,
+    }))
+    await applyMutation(
+      (doc) => engine.duplicatePages(doc, indices),
+      (elements) => duplicateElementsForPages(elements, copies),
+    )
+    const selected: string[] = []
     let offset = 0
     indices.forEach((originalIndex) => {
-      copies.push(`page-${originalIndex + offset + 1}`)
+      selected.push(`page-${originalIndex + offset + 1}`)
       offset += 1
     })
-    setSelectedPageIds(copies)
+    setSelectedPageIds(selected)
   }, [applyMutation, selectedIndices])
 
   const moveSelected = useCallback(
@@ -444,7 +737,10 @@ export function PdfEditorProvider({
         toIndex,
         pageCount,
       )
-      await applyMutation((doc) => engine.reorderPages(doc, order))
+      await applyMutation(
+        (doc) => engine.reorderPages(doc, order),
+        (elements) => remapElementsAfterReorder(elements, order, pageCount),
+      )
       setSelectedPageIds(
         Array.from(
           { length: indices.length },
@@ -466,6 +762,36 @@ export function PdfEditorProvider({
     [moveSelected, selectedIndices],
   )
 
+  const resizePage = useCallback(
+    async (id: string, width: number, height: number) => {
+      const pageIndex = pagesRef.current.findIndex((page) => page.id === id)
+      if (pageIndex === -1) return
+      const previous = pagesRef.current[pageIndex]
+      if (
+        width <= 0 ||
+        height <= 0 ||
+        (previous.width === width && previous.height === height)
+      ) {
+        return
+      }
+      await applyMutation(
+        (doc) => engine.resizePage(doc, pageIndex, width, height),
+        (elements) =>
+          elements.map((element) => {
+            if (element.page !== pageIndex) return element
+            const maxX = Math.max(0, width - element.width)
+            const maxY = Math.max(0, height - element.height)
+            return {
+              ...element,
+              x: Math.min(element.x, maxX),
+              y: Math.min(element.y, maxY),
+            }
+          }),
+      )
+    },
+    [applyMutation],
+  )
+
   const insertPdfFiles = useCallback(
     async (files: File[], atIndex?: number) => {
       const pdfFiles = files.filter((file) => !engine.isImageFile(file))
@@ -477,13 +803,20 @@ export function PdfEditorProvider({
       for (const file of pdfFiles) {
         const bytes = new Uint8Array(await file.arrayBuffer())
         const sourceCount = await engine.countPdfPages(bytes)
-        await applyMutation((doc) =>
-          engine.insertPdfPages(
-            doc,
-            bytes,
-            sourceCount.indices,
-            targetIndex + offset,
-          ),
+        await applyMutation(
+          (doc) =>
+            engine.insertPdfPages(
+              doc,
+              bytes,
+              sourceCount.indices,
+              targetIndex + offset,
+            ),
+          (elements) =>
+            remapElementsAfterInsert(
+              elements,
+              targetIndex + offset,
+              sourceCount.count,
+            ),
         )
         for (let page = 0; page < sourceCount.count; page += 1) {
           inserted.push(`page-${targetIndex + offset + page}`)
@@ -501,8 +834,10 @@ export function PdfEditorProvider({
       if (imageFiles.length === 0) return
       const pageCount = pagesRef.current.length
       const targetIndex = Math.max(0, Math.min(atIndex ?? pageCount, pageCount))
-      await applyMutation((doc) =>
-        engine.insertImagePages(doc, imageFiles, targetIndex),
+      await applyMutation(
+        (doc) => engine.insertImagePages(doc, imageFiles, targetIndex),
+        (elements) =>
+          remapElementsAfterInsert(elements, targetIndex, imageFiles.length),
       )
       setSelectedPageIds(
         Array.from(
@@ -519,8 +854,10 @@ export function PdfEditorProvider({
       const pageCount = pagesRef.current.length
       const targetIndex = Math.max(0, Math.min(atIndex ?? pageCount, pageCount))
       const reference = pagesRef.current[targetIndex - 1] ?? pagesRef.current[0]
-      await applyMutation((doc) =>
-        engine.insertBlankPage(doc, targetIndex, reference ?? undefined),
+      await applyMutation(
+        (doc) =>
+          engine.insertBlankPage(doc, targetIndex, reference ?? undefined),
+        (elements) => remapElementsAfterInsert(elements, targetIndex, 1),
       )
       setSelectedPageIds([`page-${targetIndex}`])
     },
@@ -530,10 +867,12 @@ export function PdfEditorProvider({
   const replacePageWithFile = useCallback(
     async (index: number, file: File) => {
       const bytes = new Uint8Array(await file.arrayBuffer())
-      await applyMutation((doc) =>
-        engine.isImageFile(file)
-          ? engine.replacePageWithImage(doc, index, file)
-          : engine.replacePage(doc, index, bytes),
+      await applyMutation(
+        (doc) =>
+          engine.isImageFile(file)
+            ? engine.replacePageWithImage(doc, index, file)
+            : engine.replacePage(doc, index, bytes),
+        (elements) => remapElementsAfterReplace(elements, index),
       )
       setSelectedPageIds([`page-${index}`])
     },
@@ -634,6 +973,7 @@ export function PdfEditorProvider({
       error,
       documentId,
       blob: viewBlob,
+      structuralVersion,
       numPages: pages.length,
       pages,
       selectedPageIds,
@@ -641,6 +981,21 @@ export function PdfEditorProvider({
       canRedo: historyState.canRedo,
       saveState,
       busy,
+      elements,
+      editMode,
+      tool,
+      selectedElementIds,
+      setEditMode,
+      setTool: setToolState,
+      selectElement,
+      toggleElement,
+      clearElementSelection,
+      addElement,
+      updateElement,
+      deleteElements,
+      duplicateElements,
+      commitElements,
+      moveElementToLayer,
       selectPage,
       togglePage,
       selectRange,
@@ -652,6 +1007,7 @@ export function PdfEditorProvider({
       duplicateSelected,
       moveSelected,
       moveSelectedBy,
+      resizePage,
       insertPdfFiles,
       insertImageFiles,
       insertBlankPage,
@@ -669,11 +1025,27 @@ export function PdfEditorProvider({
       error,
       documentId,
       viewBlob,
+      structuralVersion,
+      historyState,
       pages,
       selectedPageIds,
       saveState,
       busy,
-      historyState,
+      elements,
+      editMode,
+      tool,
+      selectedElementIds,
+      setEditMode,
+      setToolState,
+      selectElement,
+      toggleElement,
+      clearElementSelection,
+      addElement,
+      updateElement,
+      deleteElements,
+      duplicateElements,
+      commitElements,
+      moveElementToLayer,
       selectPage,
       togglePage,
       selectRange,
@@ -685,6 +1057,7 @@ export function PdfEditorProvider({
       duplicateSelected,
       moveSelected,
       moveSelectedBy,
+      resizePage,
       insertPdfFiles,
       insertImageFiles,
       insertBlankPage,

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LocalDocument } from '@/features/documents'
+import { useSettings } from '@/features/settings/SettingsProvider'
 import { PANEL_DEFAULTS } from '../config'
 import { toLocalDocumentTab } from '../data/local-documents'
 import type {
@@ -62,8 +63,11 @@ const initialFloatingRegions: Record<FloatingRegionId, boolean> = {
 }
 
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
-  const [panels, setPanels] =
-    useState<Record<PanelId, PanelMode>>(initialPanels)
+  const { settings } = useSettings()
+  const [panels, setPanels] = useState<Record<PanelId, PanelMode>>(() => ({
+    ...initialPanels,
+    left: settings.viewer.showPagesPanel ? initialPanels.left : 'collapsed',
+  }))
   const [panelSizes, setPanelSizes] =
     useState<Record<PanelId, number>>(initialPanelSizes)
   const [tabs, setTabs] = useState<DocumentTab[]>([])

@@ -1,0 +1,478 @@
+PHASE 3 CORRECTION — PDF WORKSPACE INTERACTION & PAGE THUMBNAIL FIXES
+
+Do not move to Phase 4 yet.
+
+Audit and fix the existing PDF workspace implementation based on the following concrete issues. Do not redesign unrelated parts of the application.
+
+==================================================
+1. EDITOR THUMBNAIL TOOLBAR
+==================================================
+
+Target:
+
+.editor-thumbnails__toolbar
+
+This toolbar contains page-level actions such as:
+
+- Add/insert page
+- Duplicate page
+- Delete page
+- Move page up
+- Move page down
+- Other existing page actions
+
+Fix the layout so this toolbar is permanently positioned at the TOP of the page-thumbnail area.
+
+Requirements:
+
+- It must remain visible while the page thumbnail list/grid scrolls.
+- It must NOT scroll away with the pages.
+- The page list/grid must scroll underneath/below it.
+- Existing page actions must remain accessible.
+- Do not duplicate the toolbar for every page.
+- Do not allow the toolbar to become part of the scrollable thumbnail content.
+
+Use an appropriate sticky/fixed layout within the thumbnail panel rather than hard-coded positioning that breaks when the panel size changes.
+
+==================================================
+2. PAGE THUMBNAIL GRID
+==================================================
+
+Target:
+
+.editor-thumbnails__grid
+
+This is the actual page thumbnail container.
+
+The pages MUST be genuinely draggable and reorderable.
+
+Requirements:
+
+- Click/touch and drag a page thumbnail.
+- Move it to another position.
+- Show a clear insertion indicator.
+- Drop it between pages.
+- Support moving to the first position.
+- Support moving to the last position.
+- Support moving multiple positions in one drag.
+- Update the actual PDF page order immediately.
+- Keep the main PDF viewer synchronized.
+- Keep the selected-page state synchronized.
+- Preserve the order during save/reopen.
+- Export must use the reordered page sequence.
+
+Do not treat drag-and-drop as a visual-only interaction.
+
+The underlying document/page order must actually change.
+
+==================================================
+3. AUTO-SCROLL WHILE DRAGGING
+==================================================
+
+When dragging a page inside:
+
+.editor-thumbnails__grid
+
+the thumbnail container must automatically scroll when the pointer/finger approaches the top or bottom edge.
+
+Example:
+
+User drags page 2 downward.
+
+They reach the bottom of the visible thumbnail area.
+
+The container should automatically scroll downward so additional pages become reachable while the user continues dragging.
+
+Likewise:
+
+- Near top edge → scroll upward.
+- Near bottom edge → scroll downward.
+
+The user must be able to drag a page from the beginning of a large document to the end without manually stopping, scrolling, and restarting the drag.
+
+Requirements:
+
+- Smooth auto-scroll.
+- Appropriate scroll speed based on distance from the edge.
+- Do not scroll when the pointer is safely inside the central area.
+- Stop scrolling when the pointer leaves the edge zone.
+- Do not accidentally scroll the main PDF workspace instead of the thumbnail container.
+- Support mouse and touch as far as the browser/platform permits.
+
+Test with documents containing at least 20–50 pages.
+
+==================================================
+4. FOUR-CORNER RESIZE — MUST ACTUALLY WORK
+==================================================
+
+The previous implementation did not correctly implement the requested four-corner resizing.
+
+Fix this properly.
+
+For editable shapes and images, provide four visible corner handles:
+
+- Top-left
+- Top-right
+- Bottom-left
+- Bottom-right
+
+Each handle must independently resize the selected element.
+
+Requirements:
+
+- Dragging top-left changes width and height from that corner.
+- Dragging top-right works independently.
+- Dragging bottom-left works independently.
+- Dragging bottom-right works independently.
+- The opposite corner acts as the appropriate anchor.
+- The element must not jump when resizing begins.
+- The element must not randomly change position.
+- Width/height must remain valid.
+- Resizing must work at all zoom levels.
+- Resizing must work after rotation.
+- Resizing must work for different page sizes.
+- Resizing must work on touch devices where supported.
+
+Do not substitute side handles for the requested corner handles.
+
+Do not consider the feature complete until all four corners have been tested.
+
+==================================================
+5. ROTATION
+==================================================
+
+Fix rotation so it behaves like a professional design editor.
+
+Rotation must:
+
+- Use a clear rotation handle.
+- Rotate around the element's center.
+- Follow pointer movement naturally.
+- Not jump when rotation begins.
+- Preserve the correct element position.
+- Work after resizing.
+- Work at different zoom levels.
+- Work on shapes and images.
+- Maintain correct PDF coordinates.
+
+The rotation math must use document/page coordinates, not raw screen coordinates.
+
+==================================================
+6. CRITICAL BUG — EDITING MUST NOT RELOAD THE PAGE
+==================================================
+
+This is a major issue.
+
+Currently, actions such as:
+
+- Dragging
+- Dropping
+- Resizing
+- Rotating
+- Reordering
+- Editing
+
+appear to cause the page/document to reload or remount.
+
+Fix this.
+
+Normal editing operations MUST NOT reload the browser page.
+
+They must also avoid unnecessarily remounting the entire PDF workspace.
+
+Investigate the actual cause instead of masking the symptoms.
+
+Check for:
+
+- Accidental form submissions
+- Buttons behaving as submit buttons
+- State changes causing full application remounts
+- Unstable React keys
+- Document/session state being recreated
+- File/blob URLs being regenerated unnecessarily
+- PDF document instances being destroyed/recreated
+- Effects with incorrect dependencies
+- Router/navigation calls
+- Parent components unnecessarily remounting the editor
+- Persistence logic triggering document reloads
+- Drag/drop handlers recreating the entire document state
+
+Editing one element should update only the necessary state/rendering.
+
+==================================================
+7. DRAGGING
+==================================================
+
+Dragging an element must feel continuous.
+
+While dragging:
+
+- The element follows the pointer.
+- No page reload occurs.
+- No visible document reset occurs.
+- The selection remains active.
+- The element does not disappear/reappear.
+- The viewport does not unexpectedly jump.
+- The PDF renderer does not unnecessarily restart.
+
+When the user releases the pointer:
+
+- Commit one final position.
+- Create one logical undo/redo entry.
+- Persist the change through the existing persistence system.
+
+Do not persist/reconstruct the entire document on every pointer movement.
+
+==================================================
+8. RESIZING
+==================================================
+
+Apply the same rule to resizing.
+
+During resize:
+
+- Update the visual transform smoothly.
+- Do not reload the document.
+- Do not recreate the PDF.
+- Do not reset selection.
+- Do not reset zoom.
+- Do not reset scroll position.
+
+On completion:
+
+- Commit the final dimensions.
+- Create one logical history entry.
+- Persist the final state.
+
+Do not write a complete document snapshot to storage on every pointermove unless the existing architecture explicitly requires it and performance remains acceptable.
+
+==================================================
+9. ROTATING
+==================================================
+
+Apply the same rule to rotation.
+
+During rotation:
+
+- Update rotation smoothly.
+- Keep the selected element visible.
+- Keep the viewport stable.
+- Do not reload/remount the workspace.
+- Do not regenerate unrelated pages.
+
+On completion:
+
+- Commit the final rotation.
+- Create one logical undo/redo entry.
+- Persist the final state.
+
+==================================================
+10. PAGE REORDERING WITHOUT RELOAD
+==================================================
+
+Page drag-and-drop must also be completely local and continuous.
+
+During page dragging:
+
+- Do not reload the PDF.
+- Do not recreate the entire editor unnecessarily.
+- Keep the dragged thumbnail responsive.
+- Keep the insertion indicator visible.
+- Auto-scroll the thumbnail container when necessary.
+- Update the page order after drop.
+
+The main PDF viewer should update to the new order without a browser reload.
+
+==================================================
+11. FIT TO PAGE — CORRECT THE MEANING
+==================================================
+
+Audit the existing "Fit to Page" implementation.
+
+Fit to Page means:
+
+THE ENTIRE PDF PAGE should fit inside the available viewing area.
+
+It should calculate the appropriate scale using:
+
+- Available viewport width
+- Available viewport height
+- PDF page width
+- PDF page height
+- Current workspace/sidebar dimensions
+
+For a portrait page, the complete portrait page should be visible.
+
+For a landscape page, the complete landscape page should be visible.
+
+For different page sizes, calculate the scale dynamically.
+
+Do not simply set a generic zoom percentage.
+
+Do not confuse Fit to Page with Fit to Width.
+
+Fit to Width:
+
+- Page width fills the available horizontal viewing area.
+- Vertical scrolling may remain necessary.
+
+Fit to Page:
+
+- Entire page fits within the available viewing area.
+- No part of the page should be clipped.
+
+Both modes must actually behave differently.
+
+==================================================
+12. VIEWER STABILITY
+==================================================
+
+Fix interactions between:
+
+- Zoom
+- Fit to Page
+- Fit to Width
+- Single Page
+- Continuous Scroll
+- Page selection
+- Editing
+- Page reordering
+
+Editing an element must NOT unexpectedly:
+
+- Reset zoom.
+- Switch view modes.
+- Change the selected page.
+- Jump the scroll position.
+- Re-render the entire document unnecessarily.
+
+==================================================
+13. REACT / COMPONENT ARCHITECTURE AUDIT
+==================================================
+
+Do a focused architecture audit of the editor to find why normal interactions cause reloads/remounts.
+
+Pay particular attention to:
+
+- Component keys
+- State ownership
+- Context providers
+- useEffect dependencies
+- useMemo/useCallback usage where relevant
+- PDF document initialization
+- Blob/object URLs
+- Persistence subscriptions
+- Drag state
+- Selection state
+- Document state
+
+Separate:
+
+A. Persistent document state
+B. Temporary interaction state
+C. Viewer/UI state
+
+Temporary pointer movement should not cause the persistent document to be reconstructed repeatedly.
+
+==================================================
+14. PERFORMANCE
+==================================================
+
+Test with:
+
+- 1 page
+- 5 pages
+- 20 pages
+- 50+ pages
+
+Verify that:
+
+- Dragging remains responsive.
+- Thumbnail scrolling remains responsive.
+- Editing remains responsive.
+- Page reordering remains responsive.
+- The application does not freeze because the entire document is being regenerated for every interaction.
+
+Use the existing architecture rather than introducing an entirely new state-management system.
+
+==================================================
+15. VALIDATION CHECKLIST
+==================================================
+
+Before declaring this correction complete, manually test:
+
+PAGE PANEL
+[ ] Toolbar remains fixed at top
+[ ] Thumbnail grid scrolls independently
+[ ] Page drag-and-drop works
+[ ] Insertion indicator works
+[ ] Auto-scroll works at top edge
+[ ] Auto-scroll works at bottom edge
+[ ] Large documents can be reordered
+
+SHAPES
+[ ] Top-left resize
+[ ] Top-right resize
+[ ] Bottom-left resize
+[ ] Bottom-right resize
+[ ] Resize at different zoom levels
+[ ] Resize after rotation
+
+IMAGES
+[ ] Four-corner resize
+[ ] Correct proportions
+[ ] Move
+[ ] Rotate
+[ ] Resize after rotation
+
+EDITOR
+[ ] Drag does not reload
+[ ] Resize does not reload
+[ ] Rotate does not reload
+[ ] Page reorder does not reload
+[ ] Editing does not reset viewport
+[ ] Undo/redo remains correct
+
+VIEWER
+[ ] Fit to Page works
+[ ] Fit to Width works
+[ ] Single Page works
+[ ] Continuous Scroll works
+[ ] Switching modes is stable
+
+FINAL TEST
+Use a real multi-page PDF and perform:
+
+Open
+→ zoom
+→ fit to page
+→ fit to width
+→ reorder pages
+→ auto-scroll while reordering
+→ add shape
+→ resize from all four corners
+→ rotate shape
+→ add image
+→ resize image
+→ rotate image
+→ edit text
+→ undo
+→ redo
+→ save
+→ reopen
+→ export
+
+There must be no browser reload or unexpected editor reset during these operations.
+
+Do not move to Phase 4 until these issues are resolved.
+
+Do not add:
+
+- Backend
+- Supabase
+- Cloudflare
+- Authentication
+- AI
+- Payments
+
+This is strictly a correction of the existing local PDF workspace and editor.

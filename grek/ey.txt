@@ -1,0 +1,17 @@
+this guy class="panel-region panel-region--grow" is too short it needs to extend  more show more
+also what the hell is forward and backward
+also when i drag shapes or image or text there becomes a kind of weird duplicate that appears and never leaves or change it shouldnt be
+
+Improve the current PDF editor toolbar and Inspector layout.
+
+Do not remove the existing top toolbar. Keep the important editing tools/actions there, but reduce unnecessary crowding.
+
+* Keep primary editing tools on the top toolbar.
+* Move secondary/contextual properties and excessive controls into the right-side Inspector.
+* Controls such as Forward/Backward and other object-specific actions should be moved to the Inspector where they make more sense.
+* Keep the top toolbar focused on actions users need frequently while editing.
+* Make the Inspector contextual to the selected object (text, shape, image, annotation, etc.).
+* Avoid duplicating controls between the toolbar and Inspector unless there is a strong UX reason.
+* Improve spacing, grouping, hierarchy, and discoverability.
+* Preserve all existing functionality; this is a UX/layout improvement, not a feature removal or full rewrite.
+* Make the result feel like a professional PDF editor rather than a toolbar packed with every available action.

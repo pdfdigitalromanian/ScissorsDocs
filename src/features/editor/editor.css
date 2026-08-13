@@ -6,15 +6,28 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
+  flex: 1 1 0;
 }
 
+/* The toolbar stays pinned above the scrolling thumbnail grid. It stays a
+   single compact row so the grid below keeps as much height as possible. */
 .editor-thumbnails__toolbar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   gap: var(--space-1);
   padding-bottom: var(--space-2);
   border-bottom: var(--border-thin);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.editor-thumbnails__toolbar .icon-button {
+  flex-shrink: 0;
+  width: var(--space-8);
+  height: var(--space-8);
 }
 
 .editor-thumbnails__icon-flip {
@@ -22,6 +35,7 @@
 }
 
 .editor-thumbnails__summary {
+  flex-shrink: 0;
   margin: 0;
   font-size: var(--text-caption-size);
   line-height: var(--text-caption-line-height);
@@ -34,7 +48,37 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-height: 0;
+  flex: 1 1 0;
+  overflow-y: auto;
+  padding-inline: var(--space-1);
+  overscroll-behavior: contain;
+}
+
+.editor-thumbnails__grid--dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.editor-thumbnails__grid--dragging .pdf-thumbnail {
+  cursor: grabbing;
+}
+
+/* Insertion indicator between pages while dragging. */
+.editor-thumbnails__insert {
+  flex-shrink: 0;
+  width: 100%;
+  height: var(--space-1);
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-surface);
+}
+
+.editor-thumbnails__grid .pdf-thumbnail--dragging {
+  opacity: 0.45;
+  border-style: dashed;
+  border-color: var(--color-primary);
 }
 
 /* Selection ring outranks the pdf.css active border. */
@@ -82,4 +126,404 @@
   flex-direction: column;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ *
+ * EditorToolbar — tool strip shown while edit mode is active
+ * ------------------------------------------------------------------ */
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface);
+  border-bottom: var(--border-divider);
+}
+
+.editor-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.editor-toolbar__group + .editor-toolbar__group {
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--border-divider);
+}
+
+.editor-toolbar .icon-button[aria-pressed='true'] {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary);
+}
+
+.editor-toolbar__note {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------------ *
+ * EditorInspector — contextual object properties in the right panel
+ * ------------------------------------------------------------------ */
+
+.editor-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.editor-inspector__summary {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-inspector .icon-button[aria-pressed='true'] {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary);
+}
+
+.editor-inspector__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.editor-inspector__section-title {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  font-weight: var(--text-caption-weight);
+  letter-spacing: var(--text-caption-letter-spacing);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.editor-inspector__row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.editor-inspector__divider {
+  align-self: center;
+  width: 1px;
+  height: var(--space-6);
+  background-color: var(--color-border-light);
+}
+
+.editor-inspector__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.editor-inspector__field--grow {
+  flex: 1 1 0;
+}
+
+.editor-inspector__field--color {
+  width: fit-content;
+}
+
+.editor-inspector__field-label {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  letter-spacing: var(--text-caption-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+.editor-inspector__input,
+.editor-inspector__color {
+  height: var(--space-8);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-caption-size);
+}
+
+.editor-inspector__input {
+  padding-inline: var(--space-2);
+}
+
+.editor-inspector__input--number {
+  width: 4.5rem;
+  padding-inline: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-inspector__color {
+  width: var(--space-9);
+  padding: 0;
+  cursor: pointer;
+}
+
+.editor-inspector__color::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.editor-inspector__color::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.editor-inspector__readonly {
+  display: block;
+  min-height: var(--space-8);
+  padding-block: var(--space-2);
+  overflow: hidden;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-inspector__button,
+.editor-inspector__toggle {
+  height: var(--space-8);
+  padding-inline: var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-caption-size);
+  cursor: pointer;
+}
+
+.editor-inspector__button:hover,
+.editor-inspector__toggle:hover {
+  background-color: var(--color-border-light);
+}
+
+.editor-inspector__button {
+  flex: 1 1 0;
+}
+
+.editor-inspector__toggle[aria-pressed='true'] {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary);
+}
+
+.editor-inspector__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.editor-inspector__empty-title {
+  margin: 0;
+  font-size: var(--text-body-l-size);
+  line-height: var(--text-body-l-line-height);
+  color: var(--color-text-secondary);
+}
+
+.editor-inspector__empty-hint {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+}
+
+/* ------------------------------------------------------------------ *
+ * ElementOverlay — pointer surface over one rendered page
+ * ------------------------------------------------------------------ */
+
+.editor-overlay {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.editor-overlay--select {
+  cursor: default;
+}
+
+.editor-overlay__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.editor-overlay__size {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  pointer-events: none;
+}
+
+.editor-element {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  transform-origin: center;
+  cursor: move;
+}
+
+.editor-element__frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.editor-element--selected .editor-element__frame {
+  border: 1px solid var(--color-primary);
+}
+
+.editor-element__handle {
+  position: absolute;
+  width: var(--space-3);
+  height: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background-color: var(--color-surface);
+  pointer-events: auto;
+}
+
+.editor-element__handle--tl {
+  top: -5px;
+  inset-inline-start: -5px;
+  cursor: nwse-resize;
+}
+
+.editor-element__handle--t {
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.editor-element__handle--tr {
+  top: -5px;
+  inset-inline-end: -5px;
+  cursor: nesw-resize;
+}
+
+.editor-element__handle--r {
+  top: 50%;
+  inset-inline-end: -5px;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.editor-element__handle--br {
+  bottom: -5px;
+  inset-inline-end: -5px;
+  cursor: nwse-resize;
+}
+
+.editor-element__handle--b {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.editor-element__handle--bl {
+  bottom: -5px;
+  inset-inline-start: -5px;
+  cursor: nesw-resize;
+}
+
+.editor-element__handle--l {
+  top: 50%;
+  inset-inline-start: -5px;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.editor-element__rotate-handle {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--space-2);
+  height: var(--space-2);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-circle);
+  background-color: var(--color-surface);
+  pointer-events: auto;
+}
+
+.editor-element__text {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  pointer-events: none;
+}
+
+.editor-element__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+
+.editor-element__shape {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.editor-element__input {
+  position: absolute;
+  z-index: 30;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  resize: none;
+  border: 1px dashed var(--color-primary);
+  border-radius: 0;
+  outline: none;
+  background-color: transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ------------------------------------------------------------------ *
+ * ElementOverlay — in-progress creation gestures
+ * ------------------------------------------------------------------ */
+
+.editor-overlay__draft {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.editor-overlay__draft--box {
+  border: 1px dashed var(--color-primary);
+}
+
+.editor-overlay__draft--line {
+  transform-origin: 0 0;
 }

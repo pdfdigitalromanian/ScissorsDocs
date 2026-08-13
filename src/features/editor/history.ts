@@ -21,14 +21,14 @@ export class ByteHistory {
   }
 
   /**
-   * Records `current` as the state before the next edit. `coalesce` merges
-   * the entry into the previous one so a burst of related changes (for
-   * example the two commits of a multi-page drag) undo as one step.
+   * Records `current` as the state before the next edit. When `coalesce` is
+   * true the previous entry is kept instead of pushing a new one, so a burst
+   * of related commits (for example the create-then-edit of a text element)
+   * undoes as a single logical step back to the state that predates the
+   * burst.
    */
   commit(current: Uint8Array, coalesce = false): void {
-    if (coalesce && this.past.length > 0) {
-      this.past[this.past.length - 1] = current
-    } else {
+    if (!coalesce) {
       this.past.push(current)
       if (this.past.length > this.capacity) {
         this.past.shift()

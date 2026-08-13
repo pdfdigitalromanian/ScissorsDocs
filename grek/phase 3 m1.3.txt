@@ -1,0 +1,179 @@
+Continue from the completed Phase 3 — Milestone 3.2.
+
+Implement real PDF content editing using the existing PDF/document architecture. Do not create a separate editor or duplicate the document state/history systems already built.
+
+OBJECTIVE
+
+Users should be able to modify the actual contents of a PDF and have those modifications appear in the exported PDF.
+
+BUILD
+
+Implement:
+
+- Add text
+- Edit supported existing text
+- Delete supported existing text
+- Add images
+- Move images
+- Resize images
+- Rotate images
+- Delete images
+- Add basic shapes
+- Move shapes
+- Resize shapes
+- Rotate shapes
+- Delete shapes
+
+TEXT
+
+For adding text, support:
+
+- Font family where supported
+- Font size
+- Bold/regular where supported
+- Alignment
+- Text color
+- Position
+- Multi-line text
+
+For existing PDF text, determine whether the text can actually be edited with the current PDF technology.
+
+If direct editing of a particular PDF text structure is not technically reliable, do not fake the result. Handle the limitation cleanly and preserve the original content.
+
+IMAGES
+
+Allow users to import supported local image files and place them on a PDF page.
+
+Support:
+
+- PNG
+- JPG/JPEG
+- WEBP where supported
+
+Images must become part of the actual exported PDF rather than existing only as an editor overlay.
+
+ELEMENT MODEL
+
+Use a reusable element model for text, images, and shapes.
+
+Each element should retain the information required to reproduce it in the PDF, including:
+
+- Page
+- Position
+- Width/height
+- Rotation
+- Content/source
+- Z-order
+- Relevant styling
+
+Do not make the UI component itself the source of truth.
+
+COORDINATES
+
+Use the existing PDF/page coordinate system from previous milestones.
+
+Make sure an element keeps the correct position when:
+
+- Zoom changes
+- The window is resized
+- The page has a different size
+- The page is rotated
+- The device changes orientation
+
+Do not store editor coordinates in a way that causes exported elements to shift.
+
+SELECTION & MANIPULATION
+
+Implement:
+
+- Click/tap selection
+- Multi-selection where appropriate
+- Move
+- Resize
+- Rotate
+- Delete
+- Duplicate where appropriate
+
+Support both mouse and touch interaction.
+
+Add keyboard controls for important operations.
+
+UNDO / REDO
+
+Integrate all changes with the existing history system.
+
+For continuous interactions such as dragging or resizing:
+
+- Do not create a history entry for every pointer movement.
+- Commit the completed interaction as one logical operation.
+
+PDF EXPORT
+
+The most important requirement:
+
+The exported PDF must contain the actual edits.
+
+Verify this by exporting the document, reopening the exported PDF, and checking that:
+
+- Added text exists
+- Images exist
+- Shapes exist
+- Positions are correct
+- Rotations are correct
+- Deleted/modified content behaves as expected
+
+Do not accept a preview-only implementation.
+
+PERSISTENCE
+
+Make sure the editing state survives the existing local save/reopen workflow.
+
+Do not create a second persistence mechanism.
+
+PERFORMANCE
+
+Avoid rebuilding the entire PDF on every pointer movement.
+
+Use temporary editor state while an element is being manipulated and commit the final change to the document model/history when the interaction completes.
+
+MOBILE
+
+Ensure the editor works with touch:
+
+- Tap selection
+- Dragging
+- Resize handles
+- Rotation
+- Touch-friendly controls
+
+Do not sacrifice the existing mobile PDF viewer behavior.
+
+VALIDATION
+
+Test with real PDFs and real local images.
+
+At minimum verify:
+
+1. Add text
+2. Move text
+3. Resize text
+4. Edit supported existing text
+5. Add image
+6. Move image
+7. Resize image
+8. Rotate image
+9. Add shape
+10. Move/resize/rotate shape
+11. Delete elements
+12. Undo/redo
+13. Save locally
+14. Export
+15. Reopen the exported PDF
+
+Pay particular attention to coordinate accuracy at different zoom levels and page sizes.
+
+Fix issues discovered during testing before finishing the milestone.
+
+Do not add backend, cloud storage, or AI functionality here.
+
+When complete, stop and wait for Phase 3 — Milestone 3.4.

@@ -12,6 +12,7 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { pdfjs } from './pdfjs'
 import { loadPdfSession, savePdfSession } from './pdf-session-store'
 import type { PdfSessionSnapshot } from './pdf-session-store'
+import { useSettings } from '@/features/settings/SettingsProvider'
 
 export type PdfViewMode = 'continuous' | 'single'
 export type PdfFitMode = 'width' | 'page' | 'manual'
@@ -132,16 +133,50 @@ export function PdfSessionProvider({
   const [info, setInfo] = useState<PdfDocumentInfo | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [scrollTarget, setScrollTarget] = useState<PdfScrollTarget | null>(null)
-  const [mode, setModeState] = useState<PdfViewMode>('continuous')
-  const [fitMode, setFitModeState] = useState<PdfFitMode>('width')
-  const [zoom, setZoomState] = useState(1)
+  const { settings } = useSettings()
+  const [mode, setModeState] = useState<PdfViewMode>(settings.viewer.mode)
+  const [fitMode, setFitModeState] = useState<PdfFitMode>(settings.viewer.fitMode)
+  const [zoom, setZoomState] = useState(settings.viewer.zoom)
   const [rotation, setRotationState] = useState(0)
-  const [resolvedBlob, setResolvedBlob] = useState<Blob | null>(blob)
 
   const numPagesRef = useRef(0)
   const currentPageRef = useRef(1)
   const documentIdRef = useRef(documentId)
   const persistSnapshotRef = useRef<PdfSessionSnapshot | null>(null)
+  const lastDocKeyRef = useRef<{ id: string | null; seen: boolean }>({
+    id: null,
+    seen: false,
+  })
+
+  /* Adjust session state during render when the blob/document changes so the
+   * reset happens synchronously instead of inside the load effect. A fresh
+   * blob for the *same* document keeps the view state; a *different* document
+   * (or none) resets it. */
+  const [lastDocKey, setLastDocKey] = useState<{
+    id: string | null
+    seen: boolean
+  }>({ id: null, seen: false })
+  if (blob) {
+    const key = documentId ?? null
+    if (!lastDocKey.seen || lastDocKey.id !== key) {
+      setLastDocKey({ id: key, seen: true })
+      setError(null)
+      setCurrentPage(1)
+      setRotationState(0)
+      setZoomState(settings.viewer.zoom)
+      setFitModeState(settings.viewer.fitMode)
+      setModeState(settings.viewer.mode)
+      setScrollTarget(null)
+      setStatus('loading')
+    }
+  } else if (lastDocKey.seen || lastDocKey.id !== null) {
+    setLastDocKey({ id: null, seen: false })
+    setDocument(null)
+    setNumPages(0)
+    setInfo(null)
+    setError(null)
+    setStatus('idle')
+  }
 
   useEffect(() => {
     numPagesRef.current = numPages
@@ -155,22 +190,55 @@ export function PdfSessionProvider({
     documentIdRef.current = documentId
   }, [documentId])
 
-  if (resolvedBlob !== blob) {
-    setResolvedBlob(blob)
-    setStatus(blob ? 'loading' : 'idle')
-    setError(null)
-    setDocument(null)
-    setNumPages(0)
-    setInfo(null)
-    setCurrentPage(1)
-    setRotationState(0)
-  }
+  /**
+   * Loads the current blob into a pdf.js document.
+   *
+   * A fresh blob for the *same* document — for example the bytes written by
+   * an editor save — refreshes the document data in place and keeps the view
+   * state (current page, zoom, rotation, fit mode). Without that, every edit
+   * bounces the user back to page 1 at default zoom and flashes the loading
+   * screen. Opening a *different* document resets the view state and restores
+   * the persisted session snapshot for that document.
+   */
+  /* Owns the live document so a blob swap never destroys the document the
+   * viewer is still rendering: the new document is loaded and published
+   * first, then the previous one is released. Destroying the old document
+   * during a reload makes pdf.js page lookups (`document.getPage`) throw on
+   * the torn-down worker and crash the viewer. */
+  const documentRef = useRef<{
+    doc: PDFDocumentProxy
+    task: PDFDocumentLoadingTask
+  } | null>(null)
 
   useEffect(() => {
-    if (!blob) return
+    return () => {
+      const current = documentRef.current
+      documentRef.current = null
+      if (current) {
+        void current.task.destroy().catch(() => undefined)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!blob) {
+      lastDocKeyRef.current = { id: null, seen: false }
+      const current = documentRef.current
+      documentRef.current = null
+      if (current) {
+        void current.task.destroy().catch(() => undefined)
+      }
+      return
+    }
+
+    const documentIdKey = documentId ?? null
+    const isNewDocument =
+      !lastDocKeyRef.current.seen || lastDocKeyRef.current.id !== documentIdKey
+    lastDocKeyRef.current = { id: documentIdKey, seen: true }
 
     let cancelled = false
     let loadingTask: PDFDocumentLoadingTask | null = null
+    let resolved = false
 
     blob
       .arrayBuffer()
@@ -185,10 +253,14 @@ export function PdfSessionProvider({
         return loadingTask.promise
       })
       .then(async (loaded) => {
-        if (cancelled || !loaded) return null
+        if (cancelled || !loaded || !loadingTask) return null
+        resolved = true
+        const previous = documentRef.current
+        documentRef.current = { doc: loaded, task: loadingTask }
         setDocument(loaded)
         setNumPages(loaded.numPages)
-        if (documentId) {
+        setCurrentPage((current) => clamp(current, 1, loaded.numPages))
+        if (isNewDocument && documentId) {
           const snapshot = await loadPdfSession(documentId).catch(() => null)
           if (cancelled) return null
           if (snapshot) {
@@ -200,10 +272,16 @@ export function PdfSessionProvider({
             setRotationState(snapshot.rotation ?? 0)
           }
         }
+        /* The viewer now holds the new document; the old one can be released
+         * without racing the renderers that still referenced it. */
+        if (previous) {
+          void previous.task.destroy().catch(() => undefined)
+        }
         return loaded.getMetadata()
       })
       .then((metadata) => {
         if (cancelled) return
+        setError(null)
         setInfo(
           extractInfo(metadata as { info?: Record<string, unknown> } | null),
         )
@@ -217,7 +295,10 @@ export function PdfSessionProvider({
 
     return () => {
       cancelled = true
-      if (loadingTask) {
+      /* Only an in-flight load is aborted here. A resolved task owns the
+       * published document (tracked in documentRef), which is released when
+       * the next document is published or the provider unmounts. */
+      if (loadingTask && !resolved) {
         void loadingTask.destroy().catch(() => undefined)
       }
     }

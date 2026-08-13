@@ -4,6 +4,7 @@ import IconButton from '@/components/ui/IconButton'
 import { PanelContent, PanelHeader, PanelTitle } from '@/components/layout'
 import type { IconName } from '@/components/icons/Icon'
 import { EditorThumbnails } from '@/features/editor/components/EditorThumbnails'
+import { EditorInspector } from '@/features/editor/EditorInspector'
 import { PANEL_DEFAULTS, getRegionsForSlot } from '../config'
 import type { PanelId, PanelSlot } from '../types'
 import { useWorkspace } from '../state/use-workspace'
@@ -61,8 +62,9 @@ export function WorkspacePanel({ panel }: WorkspacePanelProps) {
     '--panel-size': `${size}px`,
   } as CSSProperties
 
-  const panelClasses = `workspace-panel workspace-panel--${panel}${isHorizontal ? ' workspace-panel--horizontal' : ''
-    }`
+  const panelClasses = `workspace-panel workspace-panel--${panel}${
+    isHorizontal ? ' workspace-panel--horizontal' : ''
+  }`
 
   if (mode === 'collapsed') {
     return (
@@ -101,9 +103,21 @@ export function WorkspacePanel({ panel }: WorkspacePanelProps) {
         />
       </PanelHeader>
       <PanelContent className="workspace-panel__content">
-        {reservedRegions.length > 0 ? (
+        {panel === 'inspector' ? (
+          <PanelRegion title="Properties" className="panel-region--grow">
+            <EditorInspector />
+          </PanelRegion>
+        ) : reservedRegions.length > 0 ? (
           reservedRegions.map((region) => (
-            <PanelRegion key={region.id} title={region.label}>
+            <PanelRegion
+              key={region.id}
+              title={region.label}
+              className={
+                region.id === 'thumbnail'
+                  ? 'panel-region--grow'
+                  : 'panel-region--reserved'
+              }
+            >
               {region.id === 'thumbnail' ? <EditorThumbnails /> : undefined}
             </PanelRegion>
           ))

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { PDFPageProxy } from 'pdfjs-dist'
 import type { PdfTextEdit } from '@/features/editor/model'
@@ -12,6 +12,8 @@ import { Icon } from '@/components/icons/Icon'
 import { ScrollArea } from '@/components/layout'
 import type { LocalDocument } from '@/features/documents'
 import { downloadDocument } from '@/features/documents'
+import { EditorPageSurface } from '@/features/editor/EditorPageSurface'
+import { EditorToolbar } from '@/features/editor/EditorToolbar'
 import { PdfPageView } from './PdfPageView'
 import { PdfTextFormattingToolbar } from './PdfTextFormattingToolbar'
 import { PdfInfoModal } from './PdfInfoModal'
@@ -39,6 +41,7 @@ interface PdfPageSlotProps {
   textEditing: boolean
   onTextEdit: (edit: PdfTextEdit) => void
   onTextSelectionChange: (selection: PdfTextSelectionController | null) => void
+  overlay?: (page: PDFPageProxy, scale: number) => ReactNode
 }
 
 function PdfPageSlot({
@@ -51,6 +54,7 @@ function PdfPageSlot({
   textEditing,
   onTextEdit,
   onTextSelectionChange,
+  overlay,
 }: PdfPageSlotProps) {
   const session = usePdfSession()
   const [page, setPage] = useState<PDFPageProxy | null>(null)
@@ -88,6 +92,7 @@ function PdfPageSlot({
           textEditing={textEditing}
           onTextEdit={onTextEdit}
           onTextSelectionChange={onTextSelectionChange}
+          overlay={overlay?.(page, scaleFor(page))}
         />
       ) : (
         <div className="pdf-page-slot__placeholder" />
@@ -276,6 +281,8 @@ function PdfToolbar({
       </div>
 
       <div className="pdf-toolbar__group pdf-toolbar__group--end">
+        <SaveButton />
+        <EditorToggle />
         <IconButton
           icon="info"
           label="Document information"
@@ -290,6 +297,48 @@ function PdfToolbar({
         />
       </div>
     </div>
+  )
+}
+
+function EditorToggle() {
+  const { editMode, setEditMode } = usePdfEditor()
+  return (
+    <IconButton
+      icon="edit"
+      label={editMode ? 'Exit edit mode' : 'Edit content'}
+      iconSize="sm"
+      aria-pressed={editMode}
+      onClick={() => setEditMode(!editMode)}
+    />
+  )
+}
+
+function SaveButton() {
+  const { save, saveState } = usePdfEditor()
+  const { toast } = useToast()
+  const dirty = saveState === 'unsaved'
+  const saving = saveState === 'saving'
+  return (
+    <IconButton
+      icon="check"
+      label={
+        saving
+          ? 'Saving changes…'
+          : dirty
+            ? 'Save changes'
+            : 'All changes saved'
+      }
+      iconSize="sm"
+      disabled={!dirty}
+      onClick={async () => {
+        const result = await save()
+        if (result.error) {
+          toast({ title: 'Save failed', description: result.error, variant: 'error' })
+        } else {
+          toast({ title: 'Changes saved', variant: 'success' })
+        }
+      }}
+    />
   )
 }
 
@@ -421,7 +470,29 @@ export function PdfViewer({ document }: PdfViewerProps) {
     [session.fitMode, session.zoom, containerSize],
   )
 
+  const { editMode } = usePdfEditor()
+
+  const renderEditorOverlay = useCallback(
+    (page: PDFPageProxy, scale: number): ReactNode => {
+      if (!editMode) return null
+      const base = page.getViewport({ scale: 1 })
+      return (
+        <EditorPageSurface
+          pageIndex={page.pageNumber - 1}
+          pageWidth={base.width}
+          pageHeight={base.height}
+          scale={scale}
+        />
+      )
+    },
+    [editMode],
+  )
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement | null
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+      return
+    }
     const single = session.mode === 'single'
     switch (event.key) {
       case 'PageDown':
@@ -526,6 +597,8 @@ export function PdfViewer({ document }: PdfViewerProps) {
         />
       ) : null}
 
+      {editMode && <EditorToolbar />}
+
       <ScrollArea
         ref={(element) => {
           scrollerRef.current = element
@@ -542,6 +615,7 @@ export function PdfViewer({ document }: PdfViewerProps) {
               pageNumber={session.currentPage}
               scaleFor={scaleFor}
               root={null}
+              overlay={renderEditorOverlay}
               registerPage={(element) =>
                 pageElementsRef.current.set(session.currentPage, element)
               }
@@ -562,6 +636,7 @@ export function PdfViewer({ document }: PdfViewerProps) {
                 scaleFor={scaleFor}
                 root={scrollerElement}
                 onVisible={session.reportVisiblePage}
+                overlay={renderEditorOverlay}
                 registerPage={(element) =>
                   pageElementsRef.current.set(pageNumber, element)
                 }

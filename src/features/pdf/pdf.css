@@ -300,6 +300,7 @@
 .pdf-page {
   position: relative;
   display: flex;
+  position: relative;
   flex-shrink: 0;
 }
 

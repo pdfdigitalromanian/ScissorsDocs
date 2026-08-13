@@ -1,0 +1,109 @@
+3.6 CORRECTION — COMPLETE THE INSPECTOR
+
+The current Inspector implementation is incomplete. Fix it without redesigning the entire editor.
+
+The Inspector must be contextual to what is selected.
+
+1. PAGE SELECTED
+Show page-specific properties and actions:
+
+- Page width — editable
+- Page height — editable
+- Units
+- Page size presets (A4, Letter, A3, etc. where supported)
+- Portrait / Landscape
+- Page rotation
+- Duplicate page
+- Delete page
+- Move page up/down
+- Rotate page
+- Extract page
+- Crop/page boundaries where supported
+
+Changing width/height must actually change the PDF page dimensions, not just visually scale the page.
+
+2. SHAPE SELECTED
+Show:
+
+- X
+- Y
+- Width
+- Height
+- Rotation
+- Fill
+- Stroke
+- Stroke width
+- Opacity
+- Corner radius where applicable
+- Bring forward/backward
+- Bring to front/send to back
+- Duplicate
+- Delete
+
+3. IMAGE SELECTED
+Show:
+
+- X
+- Y
+- Width
+- Height
+- Rotation
+- Aspect-ratio lock
+- Opacity
+- Crop where supported
+- Arrange controls
+- Duplicate
+- Delete
+
+4. TEXT SELECTED
+Show:
+
+- X
+- Y
+- Width
+- Height
+- Rotation
+- Font
+- Font size
+- Font weight
+- Italic
+- Alignment
+- Text color
+- Line spacing where supported
+- Opacity
+- Arrange controls
+- Duplicate
+- Delete
+
+5. ANNOTATION SELECTED
+Show the relevant properties for that annotation, including position, size, color, opacity, and other existing annotation controls.
+
+6. NOTHING SELECTED
+Show a clean minimal empty/document state instead of irrelevant controls.
+
+7. TOOLBAR
+Keep important frequently-used editing tools on the existing top toolbar.
+
+Do NOT move everything into the Inspector.
+
+Move secondary/contextual controls such as Forward/Backward and detailed object properties into the Inspector to reduce top-toolbar crowding.
+
+Do not duplicate controls unnecessarily.
+
+8. FUNCTIONALITY
+
+Every Inspector control must actually work and update the selected object/page immediately.
+
+Changes must:
+
+- Not reload the browser
+- Not reset zoom
+- Not reset scroll position
+- Not lose selection
+- Support undo/redo
+- Persist correctly
+- Export correctly
+
+Make the Inspector responsive and usable on desktop and mobile.
+
+Do not create placeholder controls. If a property cannot currently be implemented correctly, do not expose a fake control for it.
