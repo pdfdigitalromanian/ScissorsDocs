@@ -476,6 +476,19 @@ export function PdfViewer({ document }: PdfViewerProps) {
     setTextEditing(requestedTextEditing)
   }, [requestedTextEditing, setTextEditing])
 
+  /* Content-only edits (text replacements) intentionally don't refresh
+   * the live pdf.js viewer/thumbnails in real time — see
+   * applyContentOnlyMutation in PdfEditorProvider. Turning text-edit mode
+   * off is a natural, deliberate "I'm done for now" checkpoint, so resync
+   * here regardless of which control flips the flag. */
+  const wasTextEditingRef = useRef(textEditing)
+  useEffect(() => {
+    if (wasTextEditingRef.current && !textEditing) {
+      editor.syncViewer()
+    }
+    wasTextEditingRef.current = textEditing
+  }, [textEditing, editor])
+
   useEffect(() => {
     registerBundledEditorFontFaces()
   }, [])
@@ -532,10 +545,11 @@ export function PdfViewer({ document }: PdfViewerProps) {
    * loading, and this component stays mounted across that loading → ready
    * transition (it's keyed by document id, not by session status). An
    * effect with an empty dependency array runs before the scroller exists
-   * and never re-attaches once it does — that left containerSize stuck at
-   * 0 forever and every "fit" mode silently falling back to 100% scale.
-   * A callback ref fires exactly when the real DOM node mounts, so this
-   * works regardless of what triggered the render that produced it.
+   * and never re-attaches once it does — that left the measured size
+   * stuck at 0 forever and every "fit" mode silently falling back to
+   * 100% scale. A callback ref fires exactly when the real DOM node
+   * mounts, so this works regardless of what triggered the render that
+   * produced it.
    */
   const attachScroller = useCallback(
     (element: HTMLDivElement | null) => {

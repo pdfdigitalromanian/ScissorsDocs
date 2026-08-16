@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
+import type { PDFPageProxy } from 'pdfjs-dist'
 import type { PdfTextEdit } from '@/features/editor/model'
 import { pdfjs, renderPdfPageToCanvas } from './pdfjs'
+import type { PageRenderTask } from './pdfjs'
 import { PdfTextEditLayer } from './PdfTextEditLayer'
 import type { PdfTextSelectionController } from './text-format'
 
@@ -28,6 +29,16 @@ function releaseCanvas(canvas: HTMLCanvasElement): void {
   canvas.height = 0
 }
 
+/**
+ * EditablePageLayers renders the text-free background (used to mask
+ * original glyphs behind live edits) and hosts the interactive text-edit
+ * DOM layer on top of it. It redraws normally on every `page`/`scale`
+ * change — including the new `page` object every text-edit commit
+ * produces for the same logical page — because `renderPdfPageToCanvas`
+ * now renders offscreen and blits the finished result in one step, so
+ * there's no visible flash to avoid, and always redrawing means what's
+ * on screen never goes stale relative to what's actually saved.
+ */
 function EditablePageLayers({
   page,
   scale,
@@ -50,7 +61,7 @@ function EditablePageLayers({
     if (!backgroundCanvas) return
 
     let cancelled = false
-    let task: RenderTask | null = null
+    let task: PageRenderTask | null = null
     void page
       .getOperatorList()
       .then((operators) => {
@@ -73,7 +84,6 @@ function EditablePageLayers({
         if (!cancelled) setBackgroundReady(true)
       })
       .catch((reason: unknown) => {
-        if (reason instanceof pdfjs.RenderingCancelledException) return
         if (!cancelled) {
           console.error(
             `Failed to render the text-free background for page ${pageNumber}.`,
@@ -113,7 +123,14 @@ function EditablePageLayers({
  * PdfPageView renders a single PDF page into a canvas. The wrapper keeps
  * the page's dimensions stable from the viewport so layout does not jump
  * while the page lazily renders, and the canvas is only rasterized once
- * it scrolls near the viewport.
+ * it scrolls near the viewport. It redraws normally whenever `page` or
+ * `scale` change — including the new `page` object a text-edit commit
+ * produces for the same logical page. That used to cause a visible
+ * clear-then-repaint flash; the fix lives in `renderPdfPageToCanvas`
+ * (renders offscreen, blits the result in one step), not in skipping the
+ * redraw here — skipping it meant the canvas stopped ever reflecting
+ * real post-edit content, which is a worse bug: what's on screen quietly
+ * drifting out of sync with what's actually saved.
  */
 export function PdfPageView({
   page,
@@ -171,7 +188,7 @@ export function PdfPageView({
     if (!canvas) return
 
     let cancelled = false
-    let task: RenderTask | null = null
+    let task: PageRenderTask | null = null
     try {
       task = renderPdfPageToCanvas(canvas, page, scale)
       task.promise
@@ -179,7 +196,6 @@ export function PdfPageView({
           if (!cancelled) setReadyRenderKey(renderKey)
         })
         .catch((reason: unknown) => {
-          if (reason instanceof pdfjs.RenderingCancelledException) return
           console.error(`Failed to render PDF page ${pageNumber}.`, reason)
         })
     } catch (reason) {
@@ -202,11 +218,11 @@ export function PdfPageView({
       <canvas ref={setCanvas} className="pdf-page__canvas" aria-hidden="true" />
       {overlay}
       {visible &&
-      textEditing &&
-      onTextEdit &&
-      onTextSelectionChange &&
-      canvasReady &&
-      canvas ? (
+        textEditing &&
+        onTextEdit &&
+        onTextSelectionChange &&
+        canvasReady &&
+        canvas ? (
         <EditablePageLayers
           key={renderKey}
           page={page}

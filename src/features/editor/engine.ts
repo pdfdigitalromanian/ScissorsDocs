@@ -35,6 +35,10 @@ import type {
   SplitMode,
 } from './model'
 import { editorFontFaceFile } from '@/features/pdf/text-format'
+import type {
+  PdfEditorFontFamily,
+  PdfEditorFontWeight,
+} from '@/features/pdf/text-format'
 
 /** A4 portrait size in points, used for blank pages without a reference. */
 export const A4_SIZE = { width: 595.28, height: 841.89 }
@@ -155,6 +159,16 @@ async function loadEditorFont(path: string): Promise<Uint8Array> {
   }
   return pending
 }
+
+/**
+ * Used when editing text with "Original PDF font" but the embedded font's
+ * glyph subset doesn't contain a character being typed — PDF fonts are
+ * commonly subsetted to only the glyphs the source document already used,
+ * so any brand-new character has nowhere to map to. Falling back to this
+ * bundled font lets the edit succeed instead of failing outright.
+ */
+const FALLBACK_FONT_FAMILY: Exclude<PdfEditorFontFamily, 'original'> =
+  'noto-sans'
 
 function decodeUnicodeHex(hex: string): string {
   if (hex.length === 0 || hex.length % 4 !== 0) return ''
@@ -296,6 +310,47 @@ function encodeWithExistingFont(
   return PDFHexString.of(encoded)
 }
 
+/**
+ * True if every character in `text` can be encoded with `unicodeToCode` — a
+ * dry run of `encodeWithExistingFont` that never throws, used to decide
+ * whether the original embedded font can represent this edit at all before
+ * committing to reusing it.
+ */
+function canEncodeWithExistingFont(
+  text: string,
+  unicodeToCode: Map<string, string>,
+): boolean {
+  const mappings = [...unicodeToCode.keys()].sort((a, b) => b.length - a.length)
+  let offset = 0
+  while (offset < text.length) {
+    const match = mappings.find((unicode) => text.startsWith(unicode, offset))
+    if (!match) return false
+    offset += match.length
+  }
+  return true
+}
+
+/**
+ * Embeds one of the bundled editor fonts (subset) and returns the embedded
+ * font, ready for `page.node.newFontDictionary(...)`. Shared by the
+ * explicit "pick a font" path in `replaceTextRun` and the original-font
+ * fallback below it.
+ */
+async function embedBundledFont(
+  doc: PDFDocument,
+  family: Exclude<PdfEditorFontFamily, 'original'>,
+  weight: PdfEditorFontWeight,
+  italic: boolean,
+) {
+  const path = editorFontFaceFile(family, weight, italic)
+  const [{ default: fontkit }, bytes] = await Promise.all([
+    import('@pdf-lib/fontkit'),
+    loadEditorFont(path),
+  ])
+  doc.registerFontkit(fontkit)
+  return doc.embedFont(bytes, { subset: true })
+}
+
 /** Rotates the given pages by a quarter turn. */
 export function rotatePages(
   doc: PDFDocument,
@@ -315,8 +370,11 @@ export function rotatePages(
  * Replaces one extracted text run. The background patch comes from a PDF.js
  * render with text operators disabled, so images, gradients and line art stay
  * intact. Original-font edits reuse the page's existing composite-font
- * resource and ToUnicode map exactly. User-selected editor fonts are embedded
- * as subsets so their real weight and italic faces survive download.
+ * resource and ToUnicode map exactly when every character can be encoded
+ * with it; when the embedded font's glyph subset is missing a character
+ * being typed, a bundled substitute font is used instead so the edit still
+ * succeeds. User-selected editor fonts are always embedded as subsets so
+ * their real weight and italic faces survive download.
  */
 export async function replaceTextRun(
   doc: PDFDocument,
@@ -333,36 +391,45 @@ export async function replaceTextRun(
   let fontKey: PDFName
   let encodedText: PDFHexString | null
   let renderedWidth = Math.max(edit.renderedWidth, 0)
-  if (edit.fontFamily === 'original') {
-    const font = findExistingFontResource(doc, page, edit.pdfFontName)
-    if (!font) {
-      throw new EditorPdfError(
-        'The original embedded PDF font resource could not be reused exactly, so no replacement was made.',
-        'unsupported',
-      )
-    }
-    fontKey = font.key
+
+  const reusableOriginal =
+    edit.fontFamily === 'original'
+      ? findExistingFontResource(doc, page, edit.pdfFontName)
+      : null
+  const originalCanRepresentText =
+    reusableOriginal !== null &&
+    (!edit.text ||
+      canEncodeWithExistingFont(edit.text, reusableOriginal.unicodeToCode))
+
+  if (
+    edit.fontFamily === 'original' &&
+    originalCanRepresentText &&
+    reusableOriginal
+  ) {
+    fontKey = reusableOriginal.key
     encodedText = edit.text
-      ? encodeWithExistingFont(edit.text, font.unicodeToCode)
+      ? encodeWithExistingFont(edit.text, reusableOriginal.unicodeToCode)
       : null
   } else {
-    const path = editorFontFaceFile(
-      edit.fontFamily,
+    /* Either a substitute font was explicitly chosen, or "original" was
+     * requested but the embedded font's glyph subset can't represent this
+     * text — fall back to a bundled font so the edit succeeds instead of
+     * failing outright with "the embedded PDF font does not contain …". */
+    const family =
+      edit.fontFamily === 'original' ? FALLBACK_FONT_FAMILY : edit.fontFamily
+    const embedded = await embedBundledFont(
+      doc,
+      family,
       edit.fontWeight,
       edit.italic,
     )
-    const [{ default: fontkit }, bytes] = await Promise.all([
-      import('@pdf-lib/fontkit'),
-      loadEditorFont(path),
-    ])
-    doc.registerFontkit(fontkit)
-    const embedded = await doc.embedFont(bytes, { subset: true })
     fontKey = page.node.newFontDictionary(embedded.name, embedded.ref)
     encodedText = edit.text ? embedded.encodeText(edit.text) : null
-    renderedWidth =
-      (embedded.widthOfTextAtSize(edit.text, edit.fontSize) +
+    renderedWidth = edit.text
+      ? (embedded.widthOfTextAtSize(edit.text, edit.fontSize) +
         Math.max([...edit.text].length - 1, 0) * edit.letterSpacing) *
       edit.horizontalScale
+      : renderedWidth
   }
 
   const patch = await doc.embedPng(edit.backgroundPatch.png)
@@ -394,10 +461,10 @@ export async function replaceTextRun(
     setFillingColor(rgb(...edit.color)),
     ...(syntheticBold
       ? [
-          setStrokingColor(rgb(...edit.color)),
-          setLineWidth(Math.max(size * 0.025, 0.35)),
-          setTextRenderingMode(TextRenderingMode.FillAndOutline),
-        ]
+        setStrokingColor(rgb(...edit.color)),
+        setLineWidth(Math.max(size * 0.025, 0.35)),
+        setTextRenderingMode(TextRenderingMode.FillAndOutline),
+      ]
       : []),
     setFontAndSize(fontKey, size),
     setCharacterSpacing(edit.letterSpacing),

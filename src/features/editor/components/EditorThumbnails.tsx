@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { MouseEvent, PointerEvent } from 'react'
-import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
-import { renderPdfPageToCanvas } from '@/features/pdf/pdfjs'
+import type { PDFPageProxy } from 'pdfjs-dist'
+import { renderPdfPageToCanvas, type PageRenderTask } from '@/features/pdf/pdfjs'
 import { PdfThumbnails, usePdfSession } from '@/features/pdf'
 import IconButton from '@/components/ui/IconButton'
 import { computeReorder } from '../engine'
@@ -77,7 +77,7 @@ function EditorThumbnailItem({
     if (!visible || !page || !canvas) return
     const base = page.getViewport({ scale: 1 })
     const scale = THUMBNAIL_WIDTH / base.width
-    let task: RenderTask | null = null
+    let task: PageRenderTask | null = null
     try {
       task = renderPdfPageToCanvas(canvas, page, scale)
       task.promise.catch(() => undefined)

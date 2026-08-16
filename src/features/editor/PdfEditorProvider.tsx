@@ -114,6 +114,14 @@ interface PdfEditorContextValue {
   redo: () => Promise<void>
   save: () => Promise<{ error: string | null }>
   download: () => Promise<string | null>
+  /**
+   * Resyncs the live pdf.js viewer (and thumbnails) with the true current
+   * bytes. Content-only edits (text replacements) intentionally never do
+   * this in real time — see `applyContentOnlyMutation` below — so this is
+   * called at natural checkpoints instead: a successful save, or turning
+   * text-edit mode off.
+   */
+  syncViewer: () => void
 }
 
 const PdfEditorContext = createContext<PdfEditorContextValue | null>(null)
@@ -275,6 +283,21 @@ export function PdfEditorProvider({
     }
   }, [document?.id, blob])
 
+  /**
+   * Resyncs the live pdf.js viewer (and thumbnails) with the true current
+   * bytes. Content-only edits (text replacements) intentionally never do
+   * this in real time — see `applyContentOnlyMutation` below — so this is
+   * called at natural checkpoints instead: a successful save, or turning
+   * text-edit mode off. No-op via reference equality if nothing was
+   * actually deferred (bytesRef and bytes state already match). Defined
+   * before `save` since `save` depends on it.
+   */
+  const syncViewer = useCallback(() => {
+    const current = bytesRef.current
+    if (!current) return
+    setBytes((previous) => (previous === current ? previous : current))
+  }, [])
+
   /* ------------------------------------------------------------------ *
    * Autosave — debounced persistence after each edit, flushed on close
    * ------------------------------------------------------------------ */
@@ -296,12 +319,13 @@ export function PdfEditorProvider({
       }
       sessionRef.current = { id, bytes: current, dirty: false }
       setSaveState('saved')
+      syncViewer()
       return { error: null }
     } catch {
       setSaveState('save-failed')
       return { error: 'The changes could not be saved to this device.' }
     }
-  }, [document])
+  }, [document, syncViewer])
 
   useEffect(() => {
     if (!autoSaveEnabled) return
@@ -618,6 +642,50 @@ export function PdfEditorProvider({
     [document, status],
   )
 
+  /**
+   * Applies a mutation that only changes page CONTENT (drawn text or
+   * graphics) — never page structure (count/order/size). Used only by
+   * `replaceText`. Unlike `applyMutation`, this deliberately does NOT
+   * call `setBytes` or bump `structuralVersion`. Those two are what
+   * publish a new blob down into PdfSessionProvider, which reloads the
+   * ENTIRE pdf.js document on every call — a full page-proxy refetch and
+   * canvas re-render for every visible page, not just the edited one.
+   * `bytesRef`/save state ARE still updated normally, so the edit is
+   * fully included the next time the document is saved, undone, or
+   * genuinely reloaded.
+   */
+  const applyContentOnlyMutation = useCallback(
+    async (mutate: (doc: PDFDocument) => void | Promise<void>): Promise<void> => {
+      const previousBytes = bytesRef.current
+      if (!previousBytes || status !== 'ready') return
+      setBusy(true)
+      try {
+        const nextDoc = await engine.loadPdf(previousBytes)
+        await mutate(nextDoc)
+        const nextElements = elementsRef.current
+        stripElementStreams(nextDoc)
+        writeElementsToDoc(nextDoc, nextElements)
+        if (nextElements.length > 0) {
+          await drawElements(nextDoc, nextElements)
+        }
+        const nextBytes = await engine.serializePdf(nextDoc)
+        historyRef.current.commit(previousBytes)
+        docRef.current = nextDoc
+        bytesRef.current = nextBytes
+        sessionRef.current = {
+          id: document?.id ?? null,
+          bytes: nextBytes,
+          dirty: true,
+        }
+        setSaveState('unsaved')
+        setHistoryState({ canUndo: true, canRedo: false })
+      } finally {
+        setBusy(false)
+      }
+    },
+    [document, status],
+  )
+
   const swapBytes = useCallback(
     async (nextBytes: Uint8Array): Promise<void> => {
       setBusy(true)
@@ -711,9 +779,9 @@ export function PdfEditorProvider({
 
   const replaceText = useCallback(
     async (edit: PdfTextEdit) => {
-      await applyMutation((doc) => engine.replaceTextRun(doc, edit))
+      await applyContentOnlyMutation((doc) => engine.replaceTextRun(doc, edit))
     },
-    [applyMutation],
+    [applyContentOnlyMutation],
   )
 
   const deleteSelected = useCallback(async () => {
@@ -1038,6 +1106,7 @@ export function PdfEditorProvider({
       redo,
       save,
       download,
+      syncViewer,
     }),
     [
       status,
@@ -1088,6 +1157,7 @@ export function PdfEditorProvider({
       redo,
       save,
       download,
+      syncViewer,
     ],
   )
 
