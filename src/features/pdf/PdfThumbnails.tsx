@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
+import type { PDFPageProxy } from 'pdfjs-dist'
 import { renderPdfPageToCanvas } from './pdfjs'
+import type { PageRenderTask } from './pdfjs'
 import { usePdfSession } from './PdfSessionProvider'
 
 const THUMBNAIL_WIDTH = 120
@@ -50,7 +51,7 @@ function PdfThumbnailItem({ pageNumber, active, onSelect }: PdfThumbnailItemProp
     if (!visible || !page || !canvas) return
     const base = page.getViewport({ scale: 1 })
     const scale = THUMBNAIL_WIDTH / base.width
-    let task: RenderTask | null = null
+    let task: PageRenderTask | null = null
     try {
       task = renderPdfPageToCanvas(canvas, page, scale)
       task.promise.catch(() => undefined)
