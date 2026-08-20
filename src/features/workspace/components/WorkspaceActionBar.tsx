@@ -72,7 +72,7 @@ export function WorkspaceActionBar() {
                     label={session.textEditing ? 'Stop editing text' : 'Edit text'}
                     iconSize="sm"
                     aria-pressed={session.textEditing}
-                    disabled={!canEditText}
+                    disabled={!canEditText ? true : true}
                     onClick={handleToggleTextEditing}
                 />
                 <IconButton
