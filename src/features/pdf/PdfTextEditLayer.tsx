@@ -1,14 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   FocusEvent as ReactFocusEvent,
   FormEvent as ReactFormEvent,
   KeyboardEvent as ReactKeyboardEvent,
+  ReactElement,
 } from 'react'
 import type { PDFPageProxy } from 'pdfjs-dist'
-import type { PdfTextEdit } from '@/features/editor/model'
+import type { PdfTextEdit, SelectedTextRun } from '@/features/editor/model'
 import { pdfjs } from './pdfjs'
 import { bundledEditorFont, sameTextFormat } from './text-format'
 import type { PdfTextFormat, PdfTextSelectionController } from './text-format'
+import TextSelectionOverlay from './TextSelectionOverlay'
 
 interface PdfTextEditLayerProps {
   page: PDFPageProxy
@@ -16,7 +18,10 @@ interface PdfTextEditLayerProps {
   sourceCanvas: HTMLCanvasElement
   backgroundCanvas: HTMLCanvasElement
   onCommit: (edit: PdfTextEdit) => void
+  onTransformCommit?: (edit: PdfTextEdit) => void
   onSelectionChange: (selection: PdfTextSelectionController | null) => void
+  onSelectedRunChange?: (run: SelectedTextRun | null) => void
+  onDeleteRun?: (edit: PdfTextEdit) => void
 }
 
 type PdfTextContent = Awaited<ReturnType<PDFPageProxy['getTextContent']>>
@@ -102,6 +107,8 @@ function textCanvasBounds(
   canvas: HTMLCanvasElement,
   paddingX = 0,
   paddingY = paddingX,
+  minWidthPx = 0,
+  minHeightPx = 0,
 ) {
   const elementRect = element.getBoundingClientRect()
   const containerRect = container.getBoundingClientRect()
@@ -116,12 +123,18 @@ function textCanvasBounds(
     containerRect.height,
   )
   const right = clamp(
-    elementRect.right - containerRect.left + paddingX,
+    Math.max(
+      elementRect.right - containerRect.left + paddingX,
+      left + minWidthPx,
+    ),
     left,
     containerRect.width,
   )
   const bottom = clamp(
-    elementRect.bottom - containerRect.top + paddingY,
+    Math.max(
+      elementRect.bottom - containerRect.top + paddingY,
+      top + minHeightPx,
+    ),
     top,
     containerRect.height,
   )
@@ -247,8 +260,35 @@ function textFontSize(item: EditableTextItem): number {
   return Math.hypot(Number(transform[2]), Number(transform[3]))
 }
 
-function fontDataByteLength(font: PdfFontFaceObject | null): number {
-  return font?.data?.byteLength ?? 0
+/** The selection bounding box for a text run, relative to the layer
+   * container. Width comes from the pdf.js text item's own advance metric
+   * (item.width × scale) — the same measurement the Redact tool uses for
+   * its text boxes — padded by a font-size-aware margin on every side. The
+   * exact same box is used by the selection overlay, the hover preview and
+   * the double-click edit box, so every highlight is always pixel-identical
+   * to the box the user is actually about to grab. */
+function boundsForRun(
+  target: HTMLElement,
+  container: HTMLElement,
+  item: EditableTextItem,
+  scale: number,
+): { left: number; top: number; width: number; height: number; rotation: number } {
+  const rect = target.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+  const fontSizePx = Math.max(textFontSize(item), 4) * scale
+  const padX = Math.max(4, fontSizePx * 0.15)
+  const padY = Math.max(3, fontSizePx * 0.12)
+  const pdfWidthPx =
+    Math.max(Math.max(Number(item.width), Number(item.height)), 1) * scale
+  return {
+    left: rect.left - containerRect.left - padX,
+    top: rect.top - containerRect.top - padY,
+    width: pdfWidthPx + padX * 2,
+    height: rect.height + padY * 2,
+    rotation:
+      (Math.atan2(Number(item.transform[1]), Number(item.transform[0])) * 180) /
+      Math.PI,
+  }
 }
 
 function inferredFontWeight(fontName: string): 400 | 700 {
@@ -297,6 +337,8 @@ function createEditingPatch(
   backgroundCanvas: HTMLCanvasElement,
   paddingX: number,
   paddingY: number,
+  minWidthPx = 0,
+  minHeightPx = 0,
 ): HTMLCanvasElement {
   const bounds = textCanvasBounds(
     element,
@@ -304,6 +346,8 @@ function createEditingPatch(
     backgroundCanvas,
     paddingX,
     paddingY,
+    minWidthPx,
+    minHeightPx,
   )
   const width = Math.max(1, bounds.pixels.right - bounds.pixels.left)
   const height = Math.max(1, bounds.pixels.bottom - bounds.pixels.top)
@@ -354,9 +398,9 @@ function captureBackgroundPatch(
 
 /**
  * PDF.js lays extracted text runs over the canvas at their exact visual
- * positions. Each run becomes a plaintext contenteditable while edit mode is
- * active. Typing is therefore visible immediately; blur commits the run into
- * the local PDF document.
+ * positions. Each run is clickable to select it (showing a bounding box),
+ * and double-clicking enters inline edit mode. Typing is therefore visible
+ * immediately; blur commits the run into the local PDF document.
  */
 export function PdfTextEditLayer({
   page,
@@ -364,7 +408,10 @@ export function PdfTextEditLayer({
   sourceCanvas,
   backgroundCanvas,
   onCommit,
+  onTransformCommit,
   onSelectionChange,
+  onSelectedRunChange,
+  onDeleteRun,
 }: PdfTextEditLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const itemsRef = useRef<EditableTextItem[]>([])
@@ -372,6 +419,22 @@ export function PdfTextEditLayer({
   const visualsRef = useRef<Map<number, TextRunVisual>>(new Map())
   const patchesRef = useRef<Map<number, HTMLCanvasElement>>(new Map())
   const activeRef = useRef<ActiveTextRun | null>(null)
+  const [selectedRun, setSelectedRun] = useState<SelectedTextRun | null>(null)
+  /** Live drag displacement so the selection bounding box (and its handles)
+   * follows the text while it is being dragged instead of staying behind. */
+  const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(
+    null,
+  )
+  /** Index of the run currently under the pointer, used to draw a faint
+   * bounding-box preview on hover — the box the click is about to select. */
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  /** Removal patch captured at the run's original (untransformed) position
+   * while it is selected, so move/resize/rotate/delete always erase the
+   * original glyphs wherever the box is dragged to. */
+  const removalPatchRef = useRef<HTMLCanvasElement | null>(null)
+  /** The CSS transform the text span had before any drag, so preview
+   * translations compose with pdf.js's own rotate/scale transform. */
+  const selectionOriginRef = useRef<{ transform: string } | null>(null)
 
   /**
    * Holds a rebuild that arrived while a run was actively being edited
@@ -414,6 +477,7 @@ export function PdfTextEditLayer({
       activeRef.current = null
       container!.replaceChildren()
       container!.classList.remove('pdf-text-edit-layer--ready')
+      setHoveredIndex(null)
 
       void page
         .getTextContent({ includeMarkedContent: false })
@@ -451,40 +515,43 @@ export function PdfTextEditLayer({
               backgroundCanvas,
             )
             if (
-              !paint.painted ||
-              fontDataByteLength(font) === 0 ||
-              !font?.loadedName ||
-              !font.name ||
-              font.missingFile ||
-              font.isType3Font
+              font?.isType3Font ||
+              font?.missingFile ||
+              (!font?.loadedName && !font?.name)
             ) {
               unavailableRuns += 1
               element.remove()
               return
             }
+            const color =
+              paint.painted && paint.color
+                ? paint.color
+                : ([0.08, 0.1, 0.16] as [number, number, number])
             visuals.set(index, {
-              color: paint.color,
-              pdfFontName: font.name,
-              browserFontFamily: `"${font.loadedName}"`,
+              color,
+              pdfFontName: font?.name ?? item.fontName,
+              browserFontFamily: font?.loadedName
+                ? `"${font.loadedName}"`
+                : 'sans-serif',
               browserScaleX: element.style.getPropertyValue('--scale-x') || '1',
               pdfHorizontalScale: textHorizontalScale(item),
             })
             element.dataset.textItemIndex = String(index)
-            element.dataset.pdfFontSource = 'embedded'
+            element.dataset.pdfFontSource = font?.loadedName
+              ? 'embedded'
+              : 'fallback'
             element.classList.add('pdf-text-edit-layer__item')
             element.style.setProperty(
               '--pdf-text-color',
-              `rgb(${Math.round(paint.color[0] * 255)} ${Math.round(paint.color[1] * 255)} ${Math.round(paint.color[2] * 255)})`,
+              `rgb(${Math.round(color[0] * 255)} ${Math.round(color[1] * 255)} ${Math.round(color[2] * 255)})`,
             )
-            // PDF.js registers the embedded font program under this generated
-            // family. Do not use cssFontInfo or synthesize weight/style here:
-            // either can make the browser select a local or fallback face.
-            element.style.fontFamily = `"${font.loadedName}"`
+            element.style.fontFamily = font?.loadedName
+              ? `"${font.loadedName}"`
+              : 'sans-serif'
             if (font?.name) element.dataset.pdfFontName = font.name
             element.dataset.pdfFontSize = String(textFontSize(item))
-            element.setAttribute('contenteditable', 'plaintext-only')
-            element.setAttribute('role', 'textbox')
-            element.setAttribute('aria-label', `Edit text: ${original}`)
+            element.setAttribute('role', 'button')
+            element.setAttribute('aria-label', `Select text: ${original}`)
             element.setAttribute('spellcheck', 'false')
             element.tabIndex = 0
           })
@@ -534,10 +601,11 @@ export function PdfTextEditLayer({
       'pdf-text-edit-layer__item--changed',
       changed,
     )
-    active.patch.classList.toggle(
-      'pdf-text-edit-layer__patch--visible',
-      changed,
-    )
+    /* Once the run has been touched (typing, formatting or dragging), the
+     * removal patch stays visible for the rest of the edit: the original
+     * glyphs underneath are erased so the CSS-rendered text never shows a
+     * duplicate behind it or flips back to the PDF's color mid-edit. */
+    active.patch.classList.add('pdf-text-edit-layer__patch--visible')
     return changed
   }
 
@@ -577,6 +645,8 @@ export function PdfTextEditLayer({
     onSelectionChange(null)
     onCommit({
       pageIndex: page.pageNumber - 1,
+      originalX: Number(item.transform[4]),
+      originalY: Number(item.transform[5]),
       x: Number(item.transform[4]),
       y: Number(item.transform[5]),
       width: Math.max(Number(item.width), Number(item.height)),
@@ -619,26 +689,49 @@ export function PdfTextEditLayer({
     runDeferredBuildIfAny()
   }
 
-
-  function handleFocus(event: ReactFocusEvent<HTMLDivElement>) {
+  function handleDoubleClick(event: React.MouseEvent<HTMLDivElement>) {
     const target = editableTarget(event.target)
     const container = containerRef.current
     if (!target || !container) return
     const index = Number(target.dataset.textItemIndex)
+    enterEditMode(target, index)
+  }
+
+  function enterEditMode(target: HTMLElement, index: number) {
+    const container = containerRef.current
+    if (!container) return
     if (activeRef.current?.index === index) return
-    if (activeRef.current) commitActive()
+    if (activeRef.current) {
+      commitActive()
+    }
     const item = itemsRef.current[index]
     const visual = visualsRef.current.get(index)
     if (!item || !visual) return
-    /* pdf.js's text-layer box approximates a run's line-height, but real
-        * glyph ink routinely extends past it — descenders (g, y, p, q, j)
-        * dip well below the baseline, and accented capitals or italic slant
-        * can rise above the top. That overshoot is asymmetric and mostly
-        * vertical, so vertical padding is deliberately much more generous
-        * than horizontal — a flat/symmetric padding was covering kerning
-        * bleed at the sides fine but still leaving slivers of ascenders or
-        * descenders uncovered top and bottom. */
+
+    target.classList.remove('pdf-text-edit-layer__item--selected')
+    setSelectedRun(null)
+    setDragOffset(null)
+    setHoveredIndex(null)
+    onSelectedRunChange?.(null)
+
     const fontSizePx = Math.max(textFontSize(item), 4) * scale
+    const pdfWidthPx = Math.max(
+      Math.max(Number(item.width), Number(item.height)),
+      1,
+    ) * scale
+    /* Size the editable box to exactly match the bounding box the run gets
+     * on single-click select (same padding and pdf.js width metric), so the
+     * "editing" outline appears precisely where the selection box was. */
+    const targetRect = target.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    const boxPadX = Math.max(4, fontSizePx * 0.15)
+    const boxPadY = Math.max(3, fontSizePx * 0.12)
+    target.style.boxSizing = 'border-box'
+    target.style.left = `${targetRect.left - containerRect.left - boxPadX}px`
+    target.style.top = `${targetRect.top - containerRect.top - boxPadY}px`
+    target.style.width = `${pdfWidthPx + boxPadX * 2}px`
+    target.style.height = `${targetRect.height + boxPadY * 2}px`
+    target.style.padding = `${boxPadY}px ${boxPadX}px`
     const patchPaddingX = Math.max(3, fontSizePx * 0.12)
     const patchPaddingY = Math.max(6, fontSizePx * 0.4)
     const patch = createEditingPatch(
@@ -647,9 +740,15 @@ export function PdfTextEditLayer({
       backgroundCanvas,
       patchPaddingX,
       patchPaddingY,
+      pdfWidthPx + patchPaddingX * 2,
+      fontSizePx + patchPaddingY * 2,
     )
     container.prepend(patch)
     patchesRef.current.set(index, patch)
+    /* The patch starts visible so the original glyphs are erased the moment
+     * editing begins — otherwise the PDF's real text shows through behind
+     * the editable box like a duplicate in a different color. */
+    patch.classList.add('pdf-text-edit-layer__patch--visible')
     const originalFormat: PdfTextFormat = {
       fontFamily: 'original',
       fontSize: Math.max(textFontSize(item), 4),
@@ -695,8 +794,252 @@ export function PdfTextEditLayer({
       patch,
       controller,
     }
+    target.setAttribute('contenteditable', 'plaintext-only')
+    target.setAttribute('role', 'textbox')
+    target.setAttribute('aria-label', `Edit text: ${originalsRef.current.get(index) ?? ''}`)
     target.classList.add('pdf-text-edit-layer__item--active')
+    target.focus()
     onSelectionChange(controller)
+  }
+
+  function captureRemovalPatch(run: SelectedTextRun): {
+    png: Uint8Array
+    x: number
+    y: number
+    width: number
+    height: number
+  } {
+    const viewport = page.getViewport({ scale })
+    const container = containerRef.current
+    const rect = run.element.getBoundingClientRect()
+    const containerRect = container?.getBoundingClientRect()
+    const left = containerRect ? rect.left - containerRect.left : 0
+    const top = containerRect ? rect.top - containerRect.top : 0
+    const width = Math.max(1, rect.width, run.pdfWidth * scale)
+    const height = Math.max(1, rect.height, run.pdfHeight * scale)
+    const first = viewport.convertToPdfPoint(left, top)
+    const second = viewport.convertToPdfPoint(left + width, top + height)
+    const scaleX = containerRect
+      ? backgroundCanvas.width / containerRect.width
+      : 1
+    const scaleY = containerRect
+      ? backgroundCanvas.height / containerRect.height
+      : 1
+    let png: Uint8Array = new Uint8Array()
+    try {
+      const snapshot = document.createElement('canvas')
+      snapshot.width = Math.max(1, Math.round(width * scaleX))
+      snapshot.height = Math.max(1, Math.round(height * scaleY))
+      const context = snapshot.getContext('2d')
+      if (context) {
+        context.drawImage(
+          backgroundCanvas,
+          Math.round(left * scaleX),
+          Math.round(top * scaleY),
+          snapshot.width,
+          snapshot.height,
+          0,
+          0,
+          snapshot.width,
+          snapshot.height,
+        )
+        png = dataUrlBytes(snapshot.toDataURL('image/png'))
+      }
+    } catch {
+      png = new Uint8Array()
+    }
+    return {
+      png,
+      x: Math.min(first[0], second[0]),
+      y: Math.min(first[1], second[1]),
+      width: Math.abs(second[0] - first[0]),
+      height: Math.abs(second[1] - first[1]),
+    }
+  }
+
+  function handleSelectDelete() {
+    if (!selectedRun) return
+    const item = itemsRef.current[selectedRun.index]
+    const visual = visualsRef.current.get(selectedRun.index)
+    if (!item || !visual) return
+    const patch = removalPatchRef.current
+    const edit: PdfTextEdit = {
+      pageIndex: page.pageNumber - 1,
+      originalX: selectedRun.pdfX,
+      originalY: selectedRun.pdfY,
+      x: selectedRun.pdfX,
+      y: selectedRun.pdfY,
+      width: selectedRun.pdfWidth,
+      height: selectedRun.pdfHeight,
+      fontSize: textFontSize(item),
+      horizontalScale: textHorizontalScale(item),
+      rotation: selectedRun.pdfRotation,
+      color: visual.color,
+      pdfFontName: visual.pdfFontName,
+      fontFamily: 'original',
+      fontWeight: inferredFontWeight(visual.pdfFontName),
+      italic: inferredItalic(visual.pdfFontName),
+      underline: false,
+      letterSpacing: 0,
+      renderedWidth: selectedRun.element.getBoundingClientRect().width / scale,
+      backgroundPatch: patch
+        ? captureBackgroundPatch(patch, page, scale)
+        : captureRemovalPatch(selectedRun),
+      text: '',
+    }
+    if (patch) {
+      patch.classList.add('pdf-text-edit-layer__patch--visible')
+    }
+    removalPatchRef.current = null
+    selectionOriginRef.current = null
+    setSelectedRun(null)
+    setDragOffset(null)
+    setHoveredIndex(null)
+    selectedRun.element.classList.remove('pdf-text-edit-layer__item--selected')
+    selectedRun.element.style.pointerEvents = 'none'
+    selectedRun.element.style.visibility = 'hidden'
+    onSelectedRunChange?.(null)
+    onDeleteRun?.(edit)
+  }
+
+  function revealRemovalPatch() {
+    if (removalPatchRef.current) {
+      removalPatchRef.current.classList.add(
+        'pdf-text-edit-layer__patch--visible',
+      )
+    }
+  }
+
+  /** The run's pre-drag CSS transform, or '' when it has none. Appending a
+   * literal 'none' would make `translate(...) none` an invalid declaration
+   * that the browser drops, so the text would never move. */
+  function selectionTransformBase(): string {
+    const transform = selectionOriginRef.current?.transform
+    return transform && transform !== 'none' ? transform : ''
+  }
+
+  function handleMove(dx: number, dy: number) {
+    if (!selectedRun) return
+    revealRemovalPatch()
+    selectedRun.element.style.transform =
+      `translate(${dx}px, ${dy}px) ${selectionTransformBase()}`
+    setDragOffset({ dx, dy })
+  }
+
+  function handleResizePreview(
+    dx: number,
+    _dy: number,
+    corner: 'nw' | 'ne' | 'sw' | 'se',
+  ) {
+    if (!selectedRun) return
+    revealRemovalPatch()
+    const start = selectedRun.bounds
+    const deltaX = corner === 'nw' || corner === 'sw' ? -dx : dx
+    const factor = Math.max(0.2, (start.width + deltaX) / start.width)
+    const item = itemsRef.current[selectedRun.index]
+    if (item) {
+      const fontSizePx = Math.max(textFontSize(item), 4) * scale
+      selectedRun.element.style.fontSize = `${fontSizePx * factor}px`
+    }
+  }
+
+  function handleRotatePreview(delta: number) {
+    if (!selectedRun) return
+    revealRemovalPatch()
+    selectedRun.element.style.transformOrigin = 'center'
+    selectedRun.element.style.transform =
+      `rotate(${delta}deg) ${selectionTransformBase()}`
+  }
+
+  function commitTransform(
+    run: SelectedTextRun,
+    transform: { dx: number; dy: number; width: number; height: number; rotation: number },
+  ) {
+    const item = itemsRef.current[run.index]
+    const visual = visualsRef.current.get(run.index)
+    if (!item || !visual) return
+    const widthFactor =
+      transform.width > 0 && run.bounds.width > 0
+        ? transform.width / run.bounds.width
+        : 1
+    const fontSize = Math.max(4, textFontSize(item) * widthFactor)
+
+    /* Rotation happens about the run's box centre (Figma-style): the
+     * committed text matrix pivot is adjusted so the box centre the user
+     * sees stays put while the run rotates around it. The measured centre
+     * is first un-rotated into the run's own text space, then re-rotated
+     * to the target angle, and any drag translation is folded in. */
+    const viewport = page.getViewport({ scale })
+    const bounds = run.bounds
+    const [centreX, centreY] = viewport.convertToPdfPoint(
+      bounds.left + bounds.width / 2,
+      bounds.top + bounds.height / 2,
+    )
+    const startRadians = (run.pdfRotation * Math.PI) / 180
+    const endRadians = (transform.rotation * Math.PI) / 180
+    const offsetX = centreX - run.pdfX
+    const offsetY = centreY - run.pdfY
+    const localX =
+      Math.cos(startRadians) * offsetX + Math.sin(startRadians) * offsetY
+    const localY =
+      -Math.sin(startRadians) * offsetX + Math.cos(startRadians) * offsetY
+    const movedCentreX = centreX + transform.dx / scale
+    const movedCentreY = centreY - transform.dy / scale
+    const newX =
+      movedCentreX - (Math.cos(endRadians) * localX - Math.sin(endRadians) * localY)
+    const newY =
+      movedCentreY - (Math.sin(endRadians) * localX + Math.cos(endRadians) * localY)
+
+    const patch = removalPatchRef.current
+    const edit: PdfTextEdit = {
+      pageIndex: page.pageNumber - 1,
+      originalX: run.pdfX,
+      originalY: run.pdfY,
+      x: newX,
+      y: newY,
+      width: run.pdfWidth,
+      height: run.pdfHeight,
+      fontSize,
+      horizontalScale: textHorizontalScale(item),
+      rotation: transform.rotation,
+      color: visual.color,
+      pdfFontName: visual.pdfFontName,
+      fontFamily: 'original',
+      fontWeight: inferredFontWeight(visual.pdfFontName),
+      italic: inferredItalic(visual.pdfFontName),
+      underline: false,
+      letterSpacing: 0,
+      renderedWidth: (run.element.getBoundingClientRect().width / scale) * widthFactor,
+      backgroundPatch: patch
+        ? captureBackgroundPatch(patch, page, scale)
+        : captureRemovalPatch(run),
+      text: run.originalText,
+    }
+    if (patch) {
+      patch.classList.add('pdf-text-edit-layer__patch--visible')
+    }
+    removalPatchRef.current = null
+    selectionOriginRef.current = null
+    /* Leave the run's inline transform and text in place until the reloaded
+     * page rebuilds the layer: the original glyphs are already erased by the
+     * (now visible) removal patch, and keeping the moved span exactly where
+     * the drag left it makes the move look instant instead of snapping the
+     * old text back on screen before the new PDF appears. The span just must
+     * not look or behave like a selectable duplicate any more — drop the
+     * selection styling and block its pointer events so it can't be
+     * clicked, hovered or edited again while the fresh page loads. */
+    setSelectedRun(null)
+    setDragOffset(null)
+    setHoveredIndex(null)
+    run.element.classList.remove('pdf-text-edit-layer__item--selected')
+    run.element.style.pointerEvents = 'none'
+    run.element.style.color = 'var(--pdf-text-color, #111827)'
+    onSelectedRunChange?.(null)
+    if (onTransformCommit) {
+      onTransformCommit(edit)
+    } else {
+      onCommit(edit)
+    }
   }
 
   function handleInput(event: ReactFormEvent<HTMLDivElement>) {
@@ -712,14 +1055,38 @@ export function PdfTextEditLayer({
     const index = Number(target.dataset.textItemIndex)
     if (event.key === 'Escape') {
       event.preventDefault()
-      cancelActive(index)
-      target.blur()
+      if (activeRef.current) {
+        cancelActive(index)
+        target.blur()
+      } else if (selectedRun) {
+        removalPatchRef.current?.remove()
+        removalPatchRef.current = null
+        selectionOriginRef.current = null
+        selectedRun.element.style.transform = ''
+        selectedRun.element.style.transformOrigin = ''
+        target.classList.remove('pdf-text-edit-layer__item--selected')
+        setSelectedRun(null)
+        setDragOffset(null)
+        onSelectedRunChange?.(null)
+      }
       return
     }
     if (event.key === 'Enter') {
       event.preventDefault()
-      commitActive(index)
-      target.blur()
+      if (activeRef.current) {
+        commitActive(index)
+        target.blur()
+      } else {
+        enterEditMode(target, index)
+      }
+    }
+    if (
+      (event.key === 'Delete' || event.key === 'Backspace') &&
+      selectedRun &&
+      !activeRef.current
+    ) {
+      event.preventDefault()
+      handleSelectDelete()
     }
   }
 
@@ -734,18 +1101,158 @@ export function PdfTextEditLayer({
       return
     }
     const index = Number(target.dataset.textItemIndex)
-    commitActive(index)
+    if (activeRef.current) {
+      commitActive(index)
+    }
+  }
+
+
+  function handleContainerClick(event: React.MouseEvent<HTMLDivElement>) {
+    const target = editableTarget(event.target)
+    const container = containerRef.current
+    if (!container) return
+
+    if (target && target.dataset.textItemIndex !== undefined) {
+      const index = Number(target.dataset.textItemIndex)
+      if (activeRef.current?.index === index) return
+      if (activeRef.current) {
+        commitActive()
+        return
+      }
+      const item = itemsRef.current[index]
+      const visual = visualsRef.current.get(index)
+      if (!item || !visual) return
+
+      const bounds = boundsForRun(target, container, item, scale)
+      const run: SelectedTextRun = {
+        index,
+        element: target,
+        bounds,
+        pdfX: Number(item.transform[4]),
+        pdfY: Number(item.transform[5]),
+        pdfWidth: Math.max(Number(item.width), Number(item.height)),
+        pdfHeight: Math.max(Number(item.height), 1),
+        pdfRotation: bounds.rotation,
+        originalText: originalsRef.current.get(index) ?? item.str,
+        pdfFontName: visual.pdfFontName,
+      }
+      removalPatchRef.current?.remove()
+      removalPatchRef.current = createEditingPatch(
+        target,
+        container,
+        backgroundCanvas,
+        Math.max(4, Math.max(textFontSize(item), 4) * scale * 0.15),
+        Math.max(3, Math.max(textFontSize(item), 4) * scale * 0.12),
+        bounds.width,
+        bounds.height,
+      )
+      selectionOriginRef.current = {
+        transform: window.getComputedStyle(target).transform,
+      }
+      target.classList.add('pdf-text-edit-layer__item--selected')
+      setSelectedRun(run)
+      setDragOffset(null)
+      onSelectedRunChange?.(run)
+      return
+    }
+
+    if (event.target === event.currentTarget) {
+      if (activeRef.current) {
+        commitActive()
+      }
+      if (selectedRun) {
+        removalPatchRef.current?.remove()
+        removalPatchRef.current = null
+        selectionOriginRef.current = null
+        selectedRun.element.style.transform = ''
+        selectedRun.element.style.transformOrigin = ''
+        selectedRun.element.classList.remove(
+          'pdf-text-edit-layer__item--selected',
+        )
+        setSelectedRun(null)
+        setDragOffset(null)
+        onSelectedRunChange?.(null)
+      }
+    }
+  }
+
+  let hoverPreview: ReactElement | null = null
+  if (
+    hoveredIndex !== null &&
+    hoveredIndex !== selectedRun?.index &&
+    !activeRef.current
+  ) {
+    const container = containerRef.current
+    const item = itemsRef.current[hoveredIndex]
+    const element = container?.querySelector<HTMLElement>(
+      `[data-text-item-index="${hoveredIndex}"]`,
+    )
+    if (container && item && element) {
+      const b = boundsForRun(element, container, item, scale)
+      hoverPreview = (
+        <div
+          className="pdf-text-edit-layer__hover-preview"
+          style={{
+            left: b.left,
+            top: b.top,
+            width: b.width,
+            height: b.height,
+            transform: b.rotation
+              ? `rotate(${b.rotation}deg)`
+              : undefined,
+            transformOrigin: 'center',
+          }}
+        />
+      )
+    }
   }
 
   return (
     <div
-      ref={containerRef}
-      className="pdf-text-edit-layer textLayer"
-      aria-label={`Editable text on page ${page.pageNumber}`}
-      onFocus={handleFocus}
-      onInput={handleInput}
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-    />
+      style={{ position: 'absolute', inset: 0, zIndex: 2 }}
+      onClick={handleContainerClick}
+    >
+      <div
+        ref={containerRef}
+        className="pdf-text-edit-layer textLayer"
+        aria-label={`Editable text on page ${page.pageNumber}`}
+        onDoubleClick={handleDoubleClick}
+        onInput={handleInput}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        onPointerOver={(event) => {
+          if (activeRef.current) return
+          const el = editableTarget(event.target)
+          if (el) setHoveredIndex(Number(el.dataset.textItemIndex))
+        }}
+        onPointerOut={(event) => {
+          const related = event.relatedTarget
+          if (related instanceof HTMLElement) {
+            const el = editableTarget(related)
+            if (el) return
+          }
+          setHoveredIndex(null)
+        }}
+      />
+      {hoverPreview}
+      {selectedRun && (
+        <TextSelectionOverlay
+          selected={selectedRun}
+          onSelect={(run) => {
+            setSelectedRun(run)
+            onSelectedRunChange?.(run)
+          }}
+          onDoubleClick={(run) => {
+            enterEditMode(run.element, run.index)
+          }}
+          onMove={(_run, dx, dy) => handleMove(dx, dy)}
+          onResize={(_run, dx, dy, corner) => handleResizePreview(dx, dy, corner)}
+          onRotate={(_run, angle) => handleRotatePreview(angle)}
+          onTransformEnd={(run, transform) => commitTransform(run, transform)}
+          onDelete={handleSelectDelete}
+          dragOffset={dragOffset}
+        />
+      )}
+    </div>
   )
 }

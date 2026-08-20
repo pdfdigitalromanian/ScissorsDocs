@@ -379,14 +379,15 @@
   color: transparent;
   min-width: 0.25rem;
   border-radius: 2px;
-  outline: 1px solid transparent;
-  outline-offset: 1px;
-  cursor: text;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: pointer;
   pointer-events: auto;
   caret-color: var(--color-text);
+  user-select: none;
   transition:
     outline-color var(--transition-fast) var(--ease-standard),
-    box-shadow var(--transition-fast) var(--ease-standard);
+    background-color var(--transition-fast) var(--ease-standard);
 }
 
 .pdf-text-edit-layer__patch {
@@ -400,29 +401,53 @@
   opacity: 1;
 }
 
-.pdf-text-edit-layer .pdf-text-edit-layer__item:hover {
-  outline-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+/* Hover affordance is the bounding-box preview drawn by the layer — a box
+ * shaped exactly like the one the click is about to select. The span itself
+ * adds no highlight or outline on hover, so hovering never implies an edit
+ * is starting. */
+.pdf-text-edit-layer__hover-preview {
+  position: absolute;
+  z-index: 8;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  border-radius: 2px;
+  background-color: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  pointer-events: none;
 }
 
-.pdf-text-edit-layer .pdf-text-edit-layer__item:focus:not(.pdf-text-edit-layer__item--changed),
+/* Only an actually editing run (double-clicked, contenteditable) shows the
+ * text color and its edit outline. Merely being focused/clicked must not —
+ * that was the "highlight like I'm about to edit" flash when pressing or
+ * dragging on unselected text. */
 .pdf-text-edit-layer .pdf-text-edit-layer__item--active:not(.pdf-text-edit-layer__item--changed) {
-  color: transparent;
+  color: var(--pdf-text-color, #111827);
   background-color: transparent;
   outline-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  user-select: text;
 }
 
 .pdf-text-edit-layer .pdf-text-edit-layer__item--changed {
   color: var(--pdf-text-color, #111827);
   background-color: transparent;
   outline-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  user-select: text;
 }
 
 .pdf-text-edit-layer__item:focus-visible {
   outline: 2px solid var(--focus-ring-color);
   outline-offset: 2px;
+}
+
+/* A selected run shows only the bounding-box overlay — which now carries the
+ * highlight fill (see the overlay CSS) — so the highlight always matches the
+ * box exactly. The run's own span keeps its visible text but drops its
+ * background and every outline (including focused/focus-visible) so there is
+ * no separate "editing" box until the run is double-clicked. */
+.pdf-text-edit-layer .pdf-text-edit-layer__item--selected,
+.pdf-text-edit-layer .pdf-text-edit-layer__item--selected:focus,
+.pdf-text-edit-layer .pdf-text-edit-layer__item--selected:focus-visible {
+  color: var(--pdf-text-color, #111827);
+  outline-color: transparent;
+  caret-color: transparent;
 }
 
 /* ------------------------------------------------------------------ *

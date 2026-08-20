@@ -1,0 +1,502 @@
+/* ------------------------------------------------------------------ *
+ * Standalone Sign PDF workflow — local signature creation and
+ * placement on a rendered PDF page.
+ * ------------------------------------------------------------------ */
+
+.sign-studio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-secondary);
+}
+
+.sign-studio__tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  width: fit-content;
+}
+
+.sign-studio__tab {
+  border: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-body-s-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.sign-studio__tab--active {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.sign-studio__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sign-studio__colors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sign-studio__color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sign-studio__color {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--color-surface);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.sign-studio__color--active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-primary);
+}
+
+.sign-studio__color-custom {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  background:
+    linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+    conic-gradient(
+        from 90deg,
+        #ef4444,
+        #f59e0b,
+        #22c55e,
+        #06b6d4,
+        #3b82f6,
+        #a855f7,
+        #ef4444
+      )
+      border-box;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    color var(--transition-fast) var(--ease-standard),
+    box-shadow var(--transition-fast) var(--ease-standard);
+}
+
+.sign-studio__color-custom:hover {
+  color: var(--color-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+}
+
+.sign-studio__color-custom--active {
+  color: var(--color-text);
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 4px var(--color-primary);
+}
+
+.sign-studio__color-custom-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-full);
+}
+
+.sign-studio__color-custom-label {
+  font-size: var(--text-caption-size);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sign-studio__color-custom input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.sign-studio__pad-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.signature-pad {
+  display: block;
+  width: 100%;
+  height: 200px;
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: #fff;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.sign-studio__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sign-studio__type {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sign-studio__label {
+  font-size: var(--text-caption-size);
+  color: var(--color-text-secondary);
+}
+
+.sign-studio__styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sign-studio__style {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  font: inherit;
+  font-size: var(--text-body-s-size);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.sign-studio__style--active {
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.sign-studio__upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sign-studio__file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: var(--border-thin);
+  border-style: dashed;
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: center;
+}
+
+.sign-studio__upload-preview {
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  background-color: #fff;
+}
+
+.sign-studio__upload-preview img {
+  max-width: 100%;
+  max-height: 180px;
+}
+
+.sign-signatures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sign-signature {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 160px;
+  height: 72px;
+  padding: var(--space-2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: #fff;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast) var(--ease-standard),
+    box-shadow var(--transition-fast) var(--ease-standard);
+}
+
+.sign-signature--active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.sign-signature img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.sign-signature__remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border: 0;
+  border-radius: var(--radius-circle);
+  background-color: var(--color-danger, #dc2626);
+  color: #fff;
+  cursor: pointer;
+}
+
+.sign-hint {
+  font-size: var(--text-caption-size);
+  color: var(--color-text-muted);
+}
+
+.sign-placement-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--color-surface) 60%, transparent);
+}
+
+.sign-placement-controls__title {
+  font-size: var(--text-caption-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.sign-placement-controls__field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-caption-size);
+  color: var(--color-text-secondary);
+}
+
+.sign-placement-controls__field--grow {
+  flex: 1 1 180px;
+}
+
+.sign-placement-controls__color {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.sign-placement-controls__field input[type='range'] {
+  flex: 1 1 120px;
+  min-width: 80px;
+  accent-color: var(--color-primary);
+}
+
+.sign-placement-controls__value {
+  min-width: 3rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sign-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sign-toolbar__pages,
+.sign-toolbar__zoom,
+.sign-toolbar__mode {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sign-toolbar__label {
+  min-width: 5.5rem;
+  text-align: center;
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.sign-stage__scroll {
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+  overflow: auto;
+  padding: var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  background-color: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  min-height: 320px;
+}
+
+.sign-stage__scroll .pdf-stage {
+  box-shadow: var(--shadow-card);
+}
+
+.sign-stage__catcher {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+}
+
+.sign-stage__catcher--select {
+  cursor: default;
+}
+
+.sign-placement {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sign-placement img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sign-placement--selected {
+  border-color: var(--color-primary);
+}
+
+.sign-placement__handle {
+  position: absolute;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  background-color: var(--color-primary);
+  border: 2px solid #fff;
+  border-radius: var(--radius-circle);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.sign-placement__handle--tl {
+  left: -6px;
+  top: -6px;
+  cursor: nwse-resize;
+}
+
+.sign-placement__handle--t {
+  left: 50%;
+  top: -6px;
+  margin-left: -6px;
+  cursor: ns-resize;
+}
+
+.sign-placement__handle--tr {
+  right: -6px;
+  top: -6px;
+  cursor: nesw-resize;
+}
+
+.sign-placement__handle--r {
+  right: -6px;
+  top: 50%;
+  margin-top: -6px;
+  cursor: ew-resize;
+}
+
+.sign-placement__handle--br {
+  right: -6px;
+  bottom: -6px;
+  cursor: nwse-resize;
+}
+
+.sign-placement__handle--b {
+  left: 50%;
+  bottom: -6px;
+  margin-left: -6px;
+  cursor: ns-resize;
+}
+
+.sign-placement__handle--bl {
+  left: -6px;
+  bottom: -6px;
+  cursor: nesw-resize;
+}
+
+.sign-placement__handle--l {
+  left: -6px;
+  top: 50%;
+  margin-top: -6px;
+  cursor: ew-resize;
+}
+
+.sign-placement__rotate {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: -28px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-primary);
+  background-color: #fff;
+  border-radius: var(--radius-circle);
+  transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.sign-placement__rotate::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  width: 2px;
+  height: 14px;
+  background-color: var(--color-primary);
+  transform: translateX(-50%);
+}
+
+@media (max-width: 640px) {
+  .signature-pad {
+    height: 160px;
+  }
+}

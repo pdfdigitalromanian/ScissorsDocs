@@ -266,6 +266,28 @@ const toolRuntime: Record<string, ToolRuntimeConfig> = {
     },
     fields: [
       {
+        name: 'page_size',
+        label: 'Page size',
+        type: 'select',
+        defaultValue: 'auto',
+        options: [
+          { label: 'Fit to image', value: 'auto' },
+          { label: 'A4', value: 'a4' },
+          { label: 'Letter', value: 'letter' },
+        ],
+      },
+      {
+        name: 'orientation',
+        label: 'Orientation',
+        type: 'select',
+        defaultValue: 'auto',
+        options: [
+          { label: 'Auto', value: 'auto' },
+          { label: 'Portrait', value: 'portrait' },
+          { label: 'Landscape', value: 'landscape' },
+        ],
+      },
+      {
         name: 'dpi',
         label: 'Resolution (DPI)',
         type: 'number',
@@ -296,6 +318,80 @@ const toolRuntime: Record<string, ToolRuntimeConfig> = {
           { label: 'JPEG', value: 'jpg' },
         ],
       },
+      {
+        name: 'quality',
+        label: 'JPEG quality',
+        type: 'number',
+        defaultValue: '85',
+        min: 20,
+        max: 100,
+      },
+      {
+        name: 'pages',
+        label: 'Pages',
+        type: 'text',
+        placeholder: 'all',
+        hint: 'Page numbers or ranges (e.g. 1-3,5). Leave empty for all pages.',
+      },
+    ],
+  },
+  'convert-pdf-to-text': {
+    input: PDF_INPUT,
+    fields: [
+      {
+        name: 'pages',
+        label: 'Pages',
+        type: 'text',
+        placeholder: 'all',
+        hint: 'Page numbers or ranges (e.g. 1-3,5). Leave empty for all pages.',
+      },
+    ],
+  },
+  'convert-text-to-pdf': {
+    input: {
+      accept: '.txt,.text',
+      label: 'Text file',
+      minFiles: 0,
+      hint: 'Upload a text file or paste text below.',
+    },
+    fields: [
+      { name: 'text', label: 'Text', type: 'textarea' },
+      {
+        name: 'page_size',
+        label: 'Page size',
+        type: 'select',
+        defaultValue: 'a4',
+        options: [
+          { label: 'A4', value: 'a4' },
+          { label: 'Letter', value: 'letter' },
+        ],
+      },
+      {
+        name: 'orientation',
+        label: 'Orientation',
+        type: 'select',
+        defaultValue: 'portrait',
+        options: [
+          { label: 'Portrait', value: 'portrait' },
+          { label: 'Landscape', value: 'landscape' },
+        ],
+      },
+      {
+        name: 'margin',
+        label: 'Margin (pt)',
+        type: 'number',
+        defaultValue: '48',
+        min: 12,
+        max: 144,
+      },
+      {
+        name: 'font_size',
+        label: 'Font size',
+        type: 'number',
+        defaultValue: '12',
+        min: 8,
+        max: 24,
+      },
     ],
   },
   'convert-word-to-pdf': {
@@ -318,6 +414,41 @@ const toolRuntime: Record<string, ToolRuntimeConfig> = {
     ],
   },
   'convert-pdf-to-word': { input: PDF_INPUT, fields: [] },
+  'convert-pptx-to-pdf': {
+    input: {
+      accept: '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      label: 'PowerPoint document',
+      minFiles: 1,
+    },
+    fields: [],
+  },
+  'convert-pdf-to-pptx': { input: PDF_INPUT, fields: [] },
+  'convert-xlsx-to-pdf': {
+    input: {
+      accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      label: 'Excel document',
+      minFiles: 1,
+    },
+    fields: [],
+  },
+  'convert-pdf-to-xlsx': { input: PDF_INPUT, fields: [] },
+  'web-to-pdf': {
+    input: {
+      accept: '',
+      label: '',
+      minFiles: 0,
+      hint: 'Enter a web address in the dedicated workflow.',
+    },
+    fields: [
+      {
+        name: 'url',
+        label: 'Page URL',
+        type: 'text',
+        required: true,
+        placeholder: 'https://example.com',
+      },
+    ],
+  },
   'convert-html-to-pdf': {
     input: {
       accept: '.html,.htm',
@@ -335,6 +466,16 @@ const toolRuntime: Record<string, ToolRuntimeConfig> = {
         options: [
           { label: 'A4', value: 'a4' },
           { label: 'Letter', value: 'letter' },
+        ],
+      },
+      {
+        name: 'orientation',
+        label: 'Orientation',
+        type: 'select',
+        defaultValue: 'portrait',
+        options: [
+          { label: 'Portrait', value: 'portrait' },
+          { label: 'Landscape', value: 'landscape' },
         ],
       },
     ],
@@ -385,7 +526,22 @@ const toolRuntime: Record<string, ToolRuntimeConfig> = {
       },
     ],
   },
-  'optimize-compress': { input: PDF_INPUT, fields: [] },
+  'optimize-compress': {
+    input: PDF_INPUT,
+    fields: [
+      {
+        name: 'level',
+        label: 'Compression level',
+        type: 'select',
+        defaultValue: 'recommended',
+        options: [
+          { label: 'Low — highest quality', value: 'low' },
+          { label: 'Recommended', value: 'recommended' },
+          { label: 'Strong — smallest file', value: 'strong' },
+        ],
+      },
+    ],
+  },
   'optimize-ocr': {
     input: PDF_INPUT,
     fields: [
@@ -508,6 +664,8 @@ const toolRuntime: Record<string, ToolRuntimeConfig> = {
       },
     ],
   },
+  'sign-pdf': { input: PDF_INPUT, fields: [] },
+  'redact-pdf': { input: PDF_INPUT, fields: [] },
   'ai-summarize': {
     input: TEXT_DOCUMENT_INPUT,
     fields: [
@@ -571,6 +729,15 @@ const toolRuntime: Record<string, ToolRuntimeConfig> = {
     ],
   },
   'ai-extract-tables': { input: PDF_INPUT, fields: [] },
+  'compare-pdf': {
+    input: {
+      accept: '.pdf,application/pdf',
+      label: 'Two PDF files',
+      minFiles: 2,
+      hint: 'The first file is treated as Version A and the second as Version B.',
+    },
+    fields: [],
+  },
 }
 
 const definitions: ToolDefinition[] = homeToolCategories.flatMap((category) =>

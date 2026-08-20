@@ -1,0 +1,43 @@
+/* ------------------------------------------------------------------ *
+ * Web workflows (Web page to PDF) — local rendering of fetched pages.
+ * ------------------------------------------------------------------ */
+
+.web-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.web-form__url {
+  max-width: 28rem;
+  width: 100%;
+}
+
+.web-note {
+  max-width: 42rem;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-muted);
+}
+
+.web-note strong {
+  color: var(--color-text-secondary);
+}
+
+.web-preview {
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+.web-preview__frame {
+  display: block;
+  width: 666px;
+  max-width: 100%;
+  margin: 0 auto;
+  height: 640px;
+  border: 0;
+  background-color: #fff;
+}

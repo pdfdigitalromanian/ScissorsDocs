@@ -25,7 +25,7 @@ export const PANEL_DEFAULTS: Record<PanelId, PanelConfig> = {
     min: 180,
     max: 480,
     orientation: 'horizontal',
-    mode: 'collapsed',
+    mode: 'open',
   },
   inspector: {
     label: 'Inspector',
@@ -34,7 +34,7 @@ export const PANEL_DEFAULTS: Record<PanelId, PanelConfig> = {
     max: 520,
     orientation: 'horizontal',
     invert: true,
-    mode: 'collapsed',
+    mode: 'open',
   },
 }
 

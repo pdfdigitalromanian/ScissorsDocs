@@ -15,12 +15,16 @@
     "server:test": "PYTHONPATH=server PYTHONPYCACHEPREFIX=/private/tmp/scissorsdoc-pycache server/.venv/bin/python -m unittest discover -s server/tests"
   },
   "dependencies": {
+    "@cantoo/pdf-lib": "^2.9.1",
     "@pdf-lib/fontkit": "^1.1.1",
+    "fflate": "^0.8.3",
+    "html2canvas": "^1.4.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.2.108",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

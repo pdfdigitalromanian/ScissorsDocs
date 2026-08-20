@@ -11,9 +11,10 @@ import { useWorkspace } from '../state/use-workspace'
 /**
  * WorkspaceActionBar is the single fixed strip of document-level tools
  * anchored to the bottom of the workspace — edit text, edit content,
- * plus the page tools (add/replace/extract/split/merge). Document
- * information and download live in the PDF viewer's own toolbar. Only
- * renders for the active PDF.
+ * plus the document-level actions (extract/split/merge). Adding and
+ * replacing pages live in the Pages thumbnails panel where page
+ * management is grouped together. Document information and download
+ * live in the PDF viewer's own toolbar. Only renders for the active PDF.
  */
 export function WorkspaceActionBar() {
     const { activeTab } = useWorkspace()
@@ -40,6 +41,7 @@ export function WorkspaceActionBar() {
             session.setTextEditing(false)
         } else {
             editor.setEditMode(false)
+            editor.setSignMode(false)
             session.setTextEditing(true)
         }
     }
@@ -70,7 +72,7 @@ export function WorkspaceActionBar() {
                     label={session.textEditing ? 'Stop editing text' : 'Edit text'}
                     iconSize="sm"
                     aria-pressed={session.textEditing}
-                    disabled={!canEditText || editor.editMode}
+                    disabled={!canEditText}
                     onClick={handleToggleTextEditing}
                 />
                 <IconButton
@@ -78,25 +80,30 @@ export function WorkspaceActionBar() {
                     label={editor.editMode ? 'Exit edit mode' : 'Edit content'}
                     iconSize="sm"
                     aria-pressed={editor.editMode}
-                    disabled={busy || session.textEditing}
                     onClick={() => {
-                        if (!editor.editMode) session.setTextEditing(false)
-                        editor.setEditMode(!editor.editMode)
+                        if (editor.editMode) {
+                            editor.setEditMode(false)
+                            return
+                        }
+                        session.setTextEditing(false)
+                        editor.setSignMode(false)
+                        editor.setEditMode(true)
                     }}
                 />
                 <IconButton
-                    icon="plus"
-                    label="Add page"
+                    icon="sign"
+                    label={editor.signMode ? 'Exit sign mode' : 'Sign this PDF'}
                     iconSize="sm"
-                    disabled={busy}
-                    onClick={() => setDialog('insert')}
-                />
-                <IconButton
-                    icon="edit"
-                    label="Replace page"
-                    iconSize="sm"
-                    disabled={selectionDisabled}
-                    onClick={() => setDialog('replace')}
+                    aria-pressed={editor.signMode}
+                    onClick={() => {
+                        if (editor.signMode) {
+                            editor.setSignMode(false)
+                            return
+                        }
+                        session.setTextEditing(false)
+                        editor.setEditMode(false)
+                        editor.setSignMode(true)
+                    }}
                 />
                 <IconButton
                     icon="scissors"

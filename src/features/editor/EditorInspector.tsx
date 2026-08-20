@@ -8,7 +8,7 @@
  *  - one page selected     → page properties (size, orientation, actions)
  *  - nothing selected      → a clean empty/document state
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Button from '@/components/ui/Button'
 import IconButton from '@/components/ui/IconButton'
@@ -23,10 +23,11 @@ import {
   FONT_FAMILIES,
   normalizeRotation,
 } from './elements'
-import type { FontFamily, PdfElement, TextAlign } from './elements'
+import type { FontFamily, ImageElement, PdfElement, TextAlign } from './elements'
 import type { EditorPage } from './model'
 import { usePdfEditor } from './PdfEditorProvider'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { transformSignatureDataUrl } from '@/features/tools/sign/signature-lib'
 import { PdfTextFormattingToolbar } from '@/features/pdf/PdfTextFormattingToolbar'
 import { usePdfSession } from '@/features/pdf/PdfSessionProvider'
 import './editor.css'
@@ -529,8 +530,10 @@ function PageInspector({ page }: { page: EditorPage }) {
 export function EditorInspector() {
   const {
     editMode,
+    signMode,
     setEditMode,
     elements,
+    signatures,
     selectedElementIds,
     selectedPageIds,
     pages,
@@ -542,6 +545,9 @@ export function EditorInspector() {
   const { settings } = useSettings()
   const session = usePdfSession()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [signatureColor, setSignatureColor] = useState('#0f172a')
+  const [signatureColorBusy, setSignatureColorBusy] = useState(false)
+  const [signatureStrokeWidth, setSignatureStrokeWidth] = useState(100)
 
   const units = settings.editor.units
 
@@ -561,6 +567,66 @@ export function EditorInspector() {
     void updateElement(id, patch)
   }
 
+  /* Sync the signature controls when the selected signature changes. */
+  useEffect(() => {
+    const selected = elements.find((element) => element.id === single?.id)
+    if (selected?.type === 'image' && selected.kind === 'signature') {
+      setSignatureColor(selected.color ?? '#0f172a')
+      setSignatureStrokeWidth(selected.strokeWidth ?? 100)
+    } else {
+      setSignatureColor('#0f172a')
+      setSignatureStrokeWidth(100)
+    }
+    setSignatureColorBusy(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [single?.id])
+
+  /* The color/width transforms are applied to the ORIGINAL signature asset
+   * (the same-session asset when available, otherwise the current baked
+   * image), so changing one setting never stacks onto the other. */
+  function signatureBaseUrl(element: ImageElement): string {
+    if (element.signatureId) {
+      const asset = signatures.find((signature) => signature.id === element.signatureId)
+      if (asset) return asset.dataUrl
+    }
+    return element.source
+  }
+
+  async function handleSignatureColor(color: string) {
+    if (!selectedImage || selectedImage.kind !== 'signature') return
+    setSignatureColor(color)
+    setSignatureColorBusy(true)
+    try {
+      const dataUrl = await transformSignatureDataUrl(
+        signatureBaseUrl(selectedImage),
+        { color, strokeWidth: signatureStrokeWidth },
+      )
+      patch(selectedImage.id, { source: dataUrl, color })
+    } catch {
+      // The transform failed — keep the previous color and image.
+    } finally {
+      setSignatureColorBusy(false)
+    }
+  }
+
+  async function handleSignatureStrokeWidth(width: number) {
+    if (!selectedImage || selectedImage.kind !== 'signature') return
+    setSignatureStrokeWidth(width)
+    try {
+      const dataUrl = await transformSignatureDataUrl(
+        signatureBaseUrl(selectedImage),
+        { color: signatureColor, strokeWidth: width },
+      )
+      patch(selectedImage.id, {
+        source: dataUrl,
+        strokeWidth: width,
+        color: signatureColor,
+      })
+    } catch {
+      // The transform failed — keep the previous width and image.
+    }
+  }
+
   const textFormattingToolbar = session.textEditing ? (
     <PdfTextFormattingToolbar
       selection={session.textSelection}
@@ -570,74 +636,8 @@ export function EditorInspector() {
     />
   ) : null
 
-  let body: ReactNode
-
-  if (!editMode) {
-    const editingText = session.textEditing
-    body = (
-      <InspectorEmpty
-        icon={editingText ? 'text' : 'edit'}
-        title={editingText ? 'Editing PDF text' : 'Not editing'}
-        hint={
-          editingText
-            ? 'Click any text on the page to edit it, or select formatted text to change its properties above.'
-            : 'Turn on Edit content to select and modify objects on the page.'
-        }
-        actions={
-          <>
-            <Button
-              variant="outline"
-              size="lg"
-              className="editor-inspector__empty-button"
-              aria-pressed={editingText}
-              onClick={() => {
-                if (editingText) {
-                  session.commitTextSelection()
-                  session.setTextEditing(false)
-                } else {
-                  setEditMode(false)
-                  session.setTextEditing(true)
-                }
-              }}
-            >
-              Edit text
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="editor-inspector__empty-button"
-              disabled={editingText}
-              onClick={() => {
-                session.setTextEditing(false)
-                setEditMode(true)
-              }}
-            >
-              Edit content
-            </Button>
-          </>
-        }
-      />
-    )
-  } else if (!single && singlePage) {
-    body = <PageInspector page={singlePage} />
-  } else if (!single) {
-    body = (
-      <InspectorEmpty
-        icon="pointer"
-        title={
-          selectedElements.length > 0
-            ? `${selectedElements.length} objects selected`
-            : 'Nothing selected'
-        }
-        hint={
-          selectedElements.length > 0
-            ? 'Select a single object to edit its properties.'
-            : 'Select an object on the page, or a page in the Pages panel, to edit its properties here.'
-        }
-      />
-    )
-  } else {
-    body = (
+  function renderElementInspector(single: PdfElement): ReactNode {
+    return (
       <>
         <p className="editor-inspector__summary">
           {single.type === 'text'
@@ -832,6 +832,34 @@ export function EditorInspector() {
                   : 'Aspect ratio free'}
               </button>
             </div>
+            {selectedImage.kind === 'signature' && (
+              <>
+                <Field
+                  label="Color"
+                  className="editor-inspector__field--color"
+                >
+                  <input
+                    type="color"
+                    className="editor-inspector__color"
+                    value={signatureColor}
+                    disabled={signatureColorBusy}
+                    onChange={(event) =>
+                      void handleSignatureColor(event.target.value)
+                    }
+                  />
+                </Field>
+                <NumberField
+                  label="Stroke width"
+                  value={signatureStrokeWidth}
+                  suffix="%"
+                  min={40}
+                  max={300}
+                  step={5}
+                  grow
+                  onChange={(value) => void handleSignatureStrokeWidth(value)}
+                />
+              </>
+            )}
           </Section>
         )}
 
@@ -861,6 +889,86 @@ export function EditorInspector() {
         />
       </>
     )
+  }
+
+  let body: ReactNode
+
+  if (signMode) {
+    body = single ? (
+      renderElementInspector(single)
+    ) : (
+      <InspectorEmpty
+        icon="edit"
+        title="Signing"
+        hint="Select a placed signature on the page to move, resize or rotate it. Use the Sign toolbar to create and place a signature."
+      />
+    )
+  } else if (!editMode) {
+    const editingText = session.textEditing
+    body = (
+      <InspectorEmpty
+        icon={editingText ? 'text' : 'edit'}
+        title={editingText ? 'Editing PDF text' : 'Not editing'}
+        hint={
+          editingText
+            ? 'Click any text on the page to edit it, or select formatted text to change its properties above.'
+            : 'Turn on Edit content to select and modify objects on the page.'
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              className="editor-inspector__empty-button"
+              aria-pressed={editingText}
+              onClick={() => {
+                if (editingText) {
+                  session.commitTextSelection()
+                  session.setTextEditing(false)
+                } else {
+                  setEditMode(false)
+                  session.setTextEditing(true)
+                }
+              }}
+            >
+              Edit text
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="editor-inspector__empty-button"
+              disabled={editingText}
+              onClick={() => {
+                session.setTextEditing(false)
+                setEditMode(true)
+              }}
+            >
+              Edit content
+            </Button>
+          </>
+        }
+      />
+    )
+  } else if (!single && singlePage) {
+    body = <PageInspector page={singlePage} />
+  } else if (!single) {
+    body = (
+      <InspectorEmpty
+        icon="pointer"
+        title={
+          selectedElements.length > 0
+            ? `${selectedElements.length} objects selected`
+            : 'Nothing selected'
+        }
+        hint={
+          selectedElements.length > 0
+            ? 'Select a single object to edit its properties.'
+            : 'Select an object on the page, or a page in the Pages panel, to edit its properties here.'
+        }
+      />
+    )
+  } else {
+    body = renderElementInspector(single)
   }
 
   return (

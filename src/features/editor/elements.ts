@@ -56,6 +56,18 @@ export interface ImageElement extends PdfElementBase {
   name: string
   /** Resize keeps the aspect ratio when true (default). */
   lockAspect?: boolean
+  /** Marks elements created by the Sign workflow so the inspector can
+   * treat them as signatures. */
+  kind?: 'signature'
+  /** The signature asset (SignatureImage.id) a placement came from, so
+   * deleting the asset can also remove every placement that uses it. */
+  signatureId?: string
+  /** Hex color applied to the signature strokes (persisted for the
+   * inspector control). */
+  color?: string
+  /** Stroke width as a percentage of the original signature (100 = as
+   * drawn). Persisted so the inspector can keep showing the live value. */
+  strokeWidth?: number
 }
 
 /** Local endpoints for line/arrow shapes, in element-local coordinates. */
@@ -208,6 +220,25 @@ export function createImageElement(
     lockAspect: true,
     source,
     name,
+  }
+}
+
+/** Creates a signature element (an image element tagged as a signature). */
+export function createSignatureElement(
+  page: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  zIndex: number,
+  source: string,
+  name: string,
+  signatureId?: string,
+): ImageElement {
+  return {
+    ...createImageElement(page, x, y, width, height, zIndex, source, name),
+    kind: 'signature',
+    ...(signatureId ? { signatureId } : {}),
   }
 }
 

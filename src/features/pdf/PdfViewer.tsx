@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { PDFPageProxy } from 'pdfjs-dist'
-import type { PdfTextEdit } from '@/features/editor/model'
+import type { PdfTextEdit, SelectedTextRun } from '@/features/editor/model'
 import { usePdfEditor } from '@/features/editor/PdfEditorProvider'
 import Button from '@/components/ui/Button'
 import IconButton from '@/components/ui/IconButton'
@@ -16,6 +16,7 @@ import { FILE_INPUT_ACCEPT, ingestFiles } from '@/features/documents'
 import { useWorkspace } from '@/features/workspace/state/use-workspace'
 import { EditorPageSurface } from '@/features/editor/EditorPageSurface'
 import { EditorToolbar } from '@/features/editor/EditorToolbar'
+import { SignToolbar } from '@/features/editor/components/SignToolbar'
 import { PdfPageView } from './PdfPageView'
 import { PdfInfoModal } from './PdfInfoModal'
 import { registerBundledEditorFontFaces } from './text-format'
@@ -94,7 +95,10 @@ interface PdfPageSlotProps {
   unregisterPage: () => void
   textEditing: boolean
   onTextEdit: (edit: PdfTextEdit) => void
+  onTransformCommit?: (edit: PdfTextEdit) => void
   onTextSelectionChange: (selection: PdfTextSelectionController | null) => void
+  onSelectedRunChange?: (run: SelectedTextRun | null) => void
+  onDeleteRun?: (edit: PdfTextEdit) => void
   overlay?: (page: PDFPageProxy, scale: number) => ReactNode
 }
 
@@ -107,7 +111,10 @@ function PdfPageSlot({
   unregisterPage,
   textEditing,
   onTextEdit,
+  onTransformCommit,
   onTextSelectionChange,
+  onSelectedRunChange,
+  onDeleteRun,
   overlay,
 }: PdfPageSlotProps) {
   const session = usePdfSession()
@@ -145,7 +152,10 @@ function PdfPageSlot({
           clearWhenHidden={session.numPages > 15}
           textEditing={textEditing}
           onTextEdit={onTextEdit}
+          onTransformCommit={onTransformCommit}
           onTextSelectionChange={onTextSelectionChange}
+          onSelectedRunChange={onSelectedRunChange}
+          onDeleteRun={onDeleteRun}
           overlay={overlay?.(page, scaleFor(page))}
         />
       ) : (
@@ -204,7 +214,7 @@ function OpenButton() {
   return (
     <>
       <IconButton
-        icon="folder-open"
+        icon="file"
         label={busy ? 'Opening…' : 'Open a file'}
         iconSize="sm"
         disabled={busy}
@@ -468,8 +478,11 @@ export function PdfViewer({ document }: PdfViewerProps) {
 
   /* The URL may carry ?tool=edit-text (deep link into text mode). Sync the
    * session flag when that param changes, but never fight the user's own
-   * toggle once they turn editing off. */
-  const lastRequestedEditingRef = useRef(requestedTextEditing)
+   * toggle once they turn editing off. Initialized to `false` — not to the
+   * current param — so a fresh mount with ?tool=edit-text actually enables
+   * editing on first load; otherwise the effect's early-return sees the
+   * ref already equal to the param and skips the sync entirely. */
+  const lastRequestedEditingRef = useRef(false)
   useEffect(() => {
     if (lastRequestedEditingRef.current === requestedTextEditing) return
     lastRequestedEditingRef.current = requestedTextEditing
@@ -505,6 +518,47 @@ export function PdfViewer({ document }: PdfViewerProps) {
           variant: 'error',
         })
       })
+    },
+    [editor, toast],
+  )
+
+  const handleDeleteText = useCallback(
+    (edit: PdfTextEdit) => {
+      void editor
+        .deleteText(edit)
+        .then(() => editor.syncViewer())
+        .catch((reason: unknown) => {
+          toast({
+            title: 'Text could not be deleted',
+            description:
+              reason instanceof Error
+                ? reason.message
+                : 'This text run could not be removed from the PDF.',
+            variant: 'error',
+          })
+        })
+    },
+    [editor, toast],
+  )
+
+  /** Move/resize/rotate commits re-write the run, then resync the live
+   * viewer so the displacement is immediately visible (text edits normally
+   * refresh only when text-edit mode is turned off). */
+  const handleTransformCommit = useCallback(
+    (edit: PdfTextEdit) => {
+      void editor
+        .replaceText(edit)
+        .then(() => editor.syncViewer())
+        .catch((reason: unknown) => {
+          toast({
+            title: 'Text could not be moved',
+            description:
+              reason instanceof Error
+                ? reason.message
+                : 'This text run could not be repositioned in the PDF.',
+            variant: 'error',
+          })
+        })
     },
     [editor, toast],
   )
@@ -648,11 +702,11 @@ export function PdfViewer({ document }: PdfViewerProps) {
     [session.fitMode, session.zoom, containerSize, pageInsets],
   )
 
-  const { editMode } = usePdfEditor()
+  const { editMode, signMode } = usePdfEditor()
 
   const renderEditorOverlay = useCallback(
     (page: PDFPageProxy, scale: number): ReactNode => {
-      if (!editMode) return null
+      if (!editMode && !signMode) return null
       const base = page.getViewport({ scale: 1 })
       return (
         <EditorPageSurface
@@ -663,7 +717,7 @@ export function PdfViewer({ document }: PdfViewerProps) {
         />
       )
     },
-    [editMode],
+    [editMode, signMode],
   )
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -758,7 +812,8 @@ export function PdfViewer({ document }: PdfViewerProps) {
         onOpenInfo={() => setInfoOpen(true)}
       />
 
-      {editMode && <EditorToolbar />}
+      {editMode && <EditorToolbar watermarkPage={session.currentPage - 1} />}
+      {signMode && <SignToolbar />}
 
       <ScrollArea
         ref={attachScroller}
@@ -782,7 +837,9 @@ export function PdfViewer({ document }: PdfViewerProps) {
               }
               textEditing={textEditing}
               onTextEdit={handleTextEdit}
+              onTransformCommit={handleTransformCommit}
               onTextSelectionChange={session.setTextSelection}
+              onDeleteRun={handleDeleteText}
             />
           </div>
         ) : (
@@ -803,7 +860,9 @@ export function PdfViewer({ document }: PdfViewerProps) {
                 }
                 textEditing={textEditing}
                 onTextEdit={handleTextEdit}
+                onTransformCommit={handleTransformCommit}
                 onTextSelectionChange={session.setTextSelection}
+                onDeleteRun={handleDeleteText}
               />
             ))}
           </div>

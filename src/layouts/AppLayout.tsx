@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Header from '@/features/shell/components/Header'
 import Sidebar from '@/features/shell/components/Sidebar'
 import { LoadingState } from '@/components/layout'
@@ -7,7 +7,21 @@ import '../features/shell/shell.css'
 import './app-layout.css'
 
 export default function AppLayout() {
-  const [collapsed, setCollapsed] = useState(true)
+  const { pathname } = useLocation()
+  const isWorkspace = pathname.startsWith('/workspace')
+  const [collapsed, setCollapsed] = useState(isWorkspace)
+  const userToggledRef = useRef(false)
+
+  useEffect(() => {
+    if (!userToggledRef.current) {
+      setCollapsed(isWorkspace)
+    }
+  }, [isWorkspace])
+
+  const handleToggleCollapsed = useCallback(() => {
+    userToggledRef.current = true
+    setCollapsed((value) => !value)
+  }, [])
   const [drawerOpen, setDrawerOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -44,7 +58,7 @@ export default function AppLayout() {
       <Sidebar
         collapsed={collapsed}
         drawerOpen={drawerOpen}
-        onToggleCollapsed={() => setCollapsed((value) => !value)}
+        onToggleCollapsed={handleToggleCollapsed}
         onCloseDrawer={closeDrawer}
       />
 

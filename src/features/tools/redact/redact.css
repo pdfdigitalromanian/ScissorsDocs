@@ -1,0 +1,218 @@
+/* ------------------------------------------------------------------ *
+ * Standalone Redact PDF workflow — permanent removal of sensitive
+ * content via rectangle or text selection on a rendered PDF page.
+ * ------------------------------------------------------------------ */
+
+.redact-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.redact-toolbar__modes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.redact-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  font: inherit;
+  font-size: var(--text-body-s-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.redact-mode--active {
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-text);
+}
+
+.redact-toolbar__pages,
+.redact-toolbar__zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.redact-toolbar__label {
+  min-width: 5.5rem;
+  text-align: center;
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.redact-stage__scroll {
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+  overflow: auto;
+  padding: var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-lg);
+  background-color: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  min-height: 320px;
+}
+
+.redact-stage__scroll .pdf-stage {
+  box-shadow: var(--shadow-card);
+}
+
+.redact-stage__catcher {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+}
+
+.redact-text-item {
+  position: absolute;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.redact-text-item:hover {
+  background-color: color-mix(in srgb, var(--color-danger, #dc2626) 35%, transparent);
+  outline: 1px solid var(--color-danger, #dc2626);
+}
+
+.redact-rect {
+  position: absolute;
+  background-color: #000;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.12) 0 6px,
+    transparent 6px 12px
+  );
+  cursor: move;
+  touch-action: none;
+}
+
+.redact-rect--preview {
+  background-color: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.redact-rect--selected {
+  outline: 2px solid var(--color-primary);
+}
+
+.redact-rect__label {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  padding: 1px 4px;
+  background-color: var(--color-primary);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.redact-rect__remove {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border: 0;
+  border-radius: var(--radius-circle);
+  background-color: var(--color-danger, #dc2626);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--color-surface);
+  cursor: pointer;
+  z-index: 4;
+}
+
+.redact-rect__handle {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  background-color: var(--color-primary);
+  border: 2px solid #fff;
+  border-radius: var(--radius-circle);
+  touch-action: none;
+  z-index: 3;
+}
+
+.redact-rect__handle--tl {
+  left: -7px;
+  top: -7px;
+  cursor: nwse-resize;
+}
+
+.redact-rect__handle--tr {
+  right: -7px;
+  top: -7px;
+  cursor: nesw-resize;
+}
+
+.redact-rect__handle--bl {
+  left: -7px;
+  bottom: -7px;
+  cursor: nesw-resize;
+}
+
+.redact-rect__handle--br {
+  right: -7px;
+  bottom: -7px;
+  cursor: nwse-resize;
+}
+
+.redact-rect__handle--t {
+  left: 50%;
+  top: -7px;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.redact-rect__handle--b {
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.redact-rect__handle--l {
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.redact-rect__handle--r {
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.redact-metadata {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body-s-size);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.redact-metadata input {
+  accent-color: var(--color-primary);
+}

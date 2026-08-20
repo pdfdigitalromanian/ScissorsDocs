@@ -33,12 +33,13 @@ interface WorkspaceAreaProps {
  *
  * Structural edits (page insert/delete/reorder/rotate, undo/redo) refresh
  * the session immediately so the viewer and thumbnails stay synchronized.
- * While edit mode is ON the session receives a copy of the current bytes
- * with every tagged element content stream stripped, so the live element
- * overlay is the only thing painting the elements — otherwise the baked
- * element copy stays visible under the overlay as a ghost duplicate that
- * never tracks the dragged element. When edit mode is switched off the
- * baked blob (elements drawn into the page) is fed in instead.
+ * While edit mode OR sign mode is ON the session receives a copy of the
+ * current bytes with every tagged element content stream stripped, so the
+ * live element overlay is the only thing painting the elements — otherwise
+ * the baked element copy stays visible under the overlay as a ghost
+ * duplicate that never tracks the dragged element. When both modes are
+ * switched off the baked blob (elements drawn into the page) is fed in
+ * instead.
  */
 function EditorSessionHost({
   documentId,
@@ -69,7 +70,9 @@ function EditorSessionHost({
   }
 
   const editingActive =
-    editor.status === 'ready' && editor.editMode && editor.blob !== null
+    editor.status === 'ready' &&
+    (editor.editMode || editor.signMode) &&
+    editor.blob !== null
 
   const sessionBlob =
     editingActive &&
@@ -84,7 +87,7 @@ function EditorSessionHost({
   useEffect(() => {
     if (
       editor.status !== 'ready' ||
-      !editor.editMode ||
+      (!editor.editMode && !editor.signMode) ||
       !editor.blob ||
       (stripped &&
         stripped.documentId === documentId &&
@@ -109,7 +112,7 @@ function EditorSessionHost({
         // The baked blob stays; the overlay renders the live elements.
       }
     })()
-  }, [editor.status, editor.editMode, editor.blob, editor.structuralVersion, documentId, stripped])
+  }, [editor.status, editor.editMode, editor.signMode, editor.blob, editor.structuralVersion, documentId, stripped])
 
   return (
     <PdfSessionProvider documentId={documentId} blob={sessionBlob}>

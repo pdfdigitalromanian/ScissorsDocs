@@ -23,8 +23,8 @@ export function EditorPageSurface({
   pageHeight,
   scale,
 }: EditorPageSurfaceProps) {
-  const { editMode } = usePdfEditor()
-  if (!editMode) return null
+  const { editMode, signMode } = usePdfEditor()
+  if (!editMode && !signMode) return null
   return (
     <ElementOverlay
       page={pageIndex}

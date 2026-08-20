@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PDFPageProxy } from 'pdfjs-dist'
-import type { PdfTextEdit } from '@/features/editor/model'
+import type { PdfTextEdit, SelectedTextRun } from '@/features/editor/model'
 import { pdfjs, renderPdfPageToCanvas } from './pdfjs'
 import type { PageRenderTask } from './pdfjs'
 import { PdfTextEditLayer } from './PdfTextEditLayer'
@@ -18,7 +18,10 @@ interface PdfPageViewProps {
   clearWhenHidden?: boolean
   textEditing?: boolean
   onTextEdit?: (edit: PdfTextEdit) => void
+  onTransformCommit?: (edit: PdfTextEdit) => void
   onTextSelectionChange?: (selection: PdfTextSelectionController | null) => void
+  onSelectedRunChange?: (run: SelectedTextRun | null) => void
+  onDeleteRun?: (edit: PdfTextEdit) => void
   /** Rendered above the canvas, in the page's own coordinate space. */
   overlay?: ReactNode
   className?: string
@@ -44,13 +47,19 @@ function EditablePageLayers({
   scale,
   sourceCanvas,
   onTextEdit,
+  onTransformCommit,
   onTextSelectionChange,
+  onSelectedRunChange,
+  onDeleteRun,
 }: {
   page: PDFPageProxy
   scale: number
   sourceCanvas: HTMLCanvasElement
   onTextEdit: (edit: PdfTextEdit) => void
+  onTransformCommit?: (edit: PdfTextEdit) => void
   onTextSelectionChange: (selection: PdfTextSelectionController | null) => void
+  onSelectedRunChange?: (run: SelectedTextRun | null) => void
+  onDeleteRun?: (edit: PdfTextEdit) => void
 }) {
   const [backgroundCanvas, setBackgroundCanvas] =
     useState<HTMLCanvasElement | null>(null)
@@ -112,7 +121,10 @@ function EditablePageLayers({
           sourceCanvas={sourceCanvas}
           backgroundCanvas={backgroundCanvas}
           onCommit={onTextEdit}
+          onTransformCommit={onTransformCommit}
           onSelectionChange={onTextSelectionChange}
+          onSelectedRunChange={onSelectedRunChange}
+          onDeleteRun={onDeleteRun}
         />
       ) : null}
     </>
@@ -140,7 +152,10 @@ export function PdfPageView({
   clearWhenHidden = false,
   textEditing = false,
   onTextEdit,
+  onTransformCommit,
   onTextSelectionChange,
+  onSelectedRunChange,
+  onDeleteRun,
   overlay,
   className = '',
 }: PdfPageViewProps) {
@@ -229,7 +244,10 @@ export function PdfPageView({
           scale={scale}
           sourceCanvas={canvas}
           onTextEdit={onTextEdit}
+          onTransformCommit={onTransformCommit}
           onTextSelectionChange={onTextSelectionChange}
+          onSelectedRunChange={onSelectedRunChange}
+          onDeleteRun={onDeleteRun}
         />
       ) : null}
     </div>

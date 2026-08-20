@@ -26,6 +26,11 @@ import {
   showText,
   TextRenderingMode,
 } from 'pdf-lib'
+import {
+  parseContentStream,
+  removeTextAtPosition,
+  serialiseContentStream,
+} from './content-stream'
 import type {
   EditorPage,
   PageRange,
@@ -331,6 +336,64 @@ function canEncodeWithExistingFont(
 }
 
 /**
+ * Attempt to patch the page content stream by removing the text
+ * operator at (targetX, targetY). Returns true on success.
+ */
+function tryRemoveTextFromContentStream(
+  doc: PDFDocument,
+  page: PDFPage,
+  targetX: number,
+  targetY: number,
+  targetWidth?: number,
+): boolean {
+  try {
+    const contents = page.node.Contents()
+    if (!contents) return false
+
+    const refArray: PDFRawStream[] = []
+    if (contents instanceof PDFArray) {
+      for (let i = 0; i < contents.size(); i++) {
+        const ref = contents.get(i)
+        const obj = doc.context.lookup(ref)
+        if (obj instanceof PDFRawStream) refArray.push(obj)
+      }
+    } else {
+      const ref = contents as unknown as PDFName
+      const obj = doc.context.lookup(ref)
+      if (obj instanceof PDFRawStream) refArray.push(obj)
+    }
+
+    if (refArray.length === 0) return false
+
+    const decodedChunks: Uint8Array[] = refArray.map((s) =>
+      decodePDFRawStream(s).decode(),
+    )
+    const totalLen = decodedChunks.reduce((sum, c) => sum + c.length, 0)
+    const combined = new Uint8Array(totalLen)
+    let off = 0
+    for (const chunk of decodedChunks) {
+      combined.set(chunk, off)
+      off += chunk.length
+    }
+
+    const ops = parseContentStream(combined)
+    const newOps = removeTextAtPosition(ops, targetX, targetY, 3, targetWidth)
+    if (newOps.length >= ops.length) return false
+
+    const replacement = serialiseContentStream(newOps)
+    for (const stream of refArray) {
+      const ref = doc.context.getObjectRef(stream)
+      if (!ref) continue
+      const newStream = PDFRawStream.of(stream.dict, replacement)
+      doc.context.assign(ref, newStream)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Embeds one of the bundled editor fonts (subset) and returns the embedded
  * font, ready for `page.node.newFontDictionary(...)`. Shared by the
  * explicit "pick a font" path in `replaceTextRun` and the original-font
@@ -432,13 +495,23 @@ export async function replaceTextRun(
       : renderedWidth
   }
 
-  const patch = await doc.embedPng(edit.backgroundPatch.png)
-  page.drawImage(patch, {
-    x: edit.backgroundPatch.x,
-    y: edit.backgroundPatch.y,
-    width: edit.backgroundPatch.width,
-    height: edit.backgroundPatch.height,
-  })
+  const patched = tryRemoveTextFromContentStream(
+    doc,
+    page,
+    edit.originalX,
+    edit.originalY,
+    edit.width,
+  )
+
+  if (!patched) {
+    const patch = await doc.embedPng(edit.backgroundPatch.png)
+    page.drawImage(patch, {
+      x: edit.backgroundPatch.x,
+      y: edit.backgroundPatch.y,
+      width: edit.backgroundPatch.width,
+      height: edit.backgroundPatch.height,
+    })
+  }
 
   if (!encodedText) return
 
@@ -495,6 +568,36 @@ export async function replaceTextRun(
       },
       thickness: Math.max(size * 0.055, 0.5),
       color: rgb(...edit.color),
+    })
+  }
+}
+
+/**
+ * Removes an existing text run by modifying the page content stream
+ * directly — finding the text-show operator at (x, y) and deleting it.
+ * Falls back to the background-patch approach when content stream
+ * parsing cannot locate the operator.
+ */
+export async function deleteTextRun(
+  doc: PDFDocument,
+  page: PDFPage,
+  edit: PdfTextEdit,
+): Promise<void> {
+  const patched = tryRemoveTextFromContentStream(
+    doc,
+    page,
+    edit.originalX,
+    edit.originalY,
+    edit.width,
+  )
+
+  if (!patched) {
+    const patch = await doc.embedPng(edit.backgroundPatch.png)
+    page.drawImage(patch, {
+      x: edit.backgroundPatch.x,
+      y: edit.backgroundPatch.y,
+      width: edit.backgroundPatch.width,
+      height: edit.backgroundPatch.height,
     })
   }
 }

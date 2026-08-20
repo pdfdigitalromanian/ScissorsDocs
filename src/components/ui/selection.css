@@ -5,6 +5,7 @@
 
 .checkbox,
 .radio {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
@@ -13,6 +14,25 @@
   line-height: var(--text-body-m-line-height);
   font-weight: var(--text-body-m-weight);
   color: var(--color-text);
+}
+
+/* Pin the (visually hidden) input inside the label. Without a positioned
+   ancestor the absolute input's focus would scroll the page to wherever
+   the browser resolves its static position, which made clicking a checkbox
+   jump the document. Focus now stays in place. */
+.checkbox__input,
+.radio__input {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .checkbox--disabled,

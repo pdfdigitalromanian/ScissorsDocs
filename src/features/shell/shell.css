@@ -161,6 +161,12 @@
   border-bottom: var(--border-divider);
 }
 
+.sidebar__header-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .sidebar__title {
   font-size: var(--text-label-size);
   font-weight: var(--text-label-weight);
@@ -219,10 +225,15 @@
 }
 
 .sidebar--collapsed .sidebar__header {
-  display: none;
+  justify-content: center;
+  padding-inline: 0;
 }
 
 .sidebar--collapsed .sidebar__title {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar__header .sidebar__close {
   display: none;
 }
 

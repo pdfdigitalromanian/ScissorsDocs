@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import type { ChangeEvent } from 'react'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
 import Radio from '@/components/ui/Radio'
+import FilePicker from '@/components/ui/FilePicker'
 import {
   Modal,
   ModalHeader,
@@ -53,10 +52,6 @@ function InsertDialog({ onClose }: { onClose: () => void }) {
   const { toast } = useToast()
   const [files, setFiles] = useState<File[]>([])
 
-  const chooseFiles = (event: ChangeEvent<HTMLInputElement>) => {
-    setFiles(Array.from(event.target.files ?? []))
-  }
-
   const handleConfirm = async () => {
     if (files.length === 0) return
     await editor.insertPdfFiles(files)
@@ -79,20 +74,12 @@ function InsertDialog({ onClose }: { onClose: () => void }) {
         <p className="editor-dialog__text">
           Choose PDF files or images to append to the end of the document.
         </p>
-        <Input
-          type="file"
+        <FilePicker
           label="Files"
           accept=".pdf,image/*"
           multiple
-          onChange={chooseFiles}
+          onChange={(next) => setFiles(next)}
         />
-        {files.length > 0 && (
-          <ul className="editor-dialog__list">
-            {files.map((file) => (
-              <li key={file.name}>{file.name}</li>
-            ))}
-          </ul>
-        )}
       </ModalBody>
       <ModalFooter>
         <Button variant="ghost" onClick={onClose}>
@@ -139,13 +126,11 @@ function ReplaceDialog({ onClose }: { onClose: () => void }) {
             ? `Replaces page ${pageIndex + 1} with the first page of a PDF or a single image.`
             : 'Select a page in the Pages panel first.'}
         </p>
-        <Input
-          type="file"
+        <FilePicker
           label="Replacement"
           accept=".pdf,image/*"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          onChange={(next) => setFile(next[0] ?? null)}
         />
-        {file && <p className="editor-dialog__file">{file.name}</p>}
       </ModalBody>
       <ModalFooter>
         <Button variant="ghost" onClick={onClose}>
@@ -281,10 +266,6 @@ function MergeDialog({ onClose }: { onClose: () => void }) {
   const { toast } = useToast()
   const [files, setFiles] = useState<File[]>([])
 
-  const chooseFiles = (event: ChangeEvent<HTMLInputElement>) => {
-    setFiles(Array.from(event.target.files ?? []))
-  }
-
   const handleConfirm = async () => {
     if (files.length < 2) return
     const output = await editor.mergeDocuments(files)
@@ -308,20 +289,13 @@ function MergeDialog({ onClose }: { onClose: () => void }) {
         <p className="editor-dialog__text">
           Choose at least two PDF files to combine into a single document.
         </p>
-        <Input
-          type="file"
+        <FilePicker
           label="PDF files"
           accept=".pdf"
           multiple
-          onChange={chooseFiles}
+          minFiles={2}
+          onChange={(next) => setFiles(next)}
         />
-        {files.length > 0 && (
-          <ul className="editor-dialog__list">
-            {files.map((file) => (
-              <li key={file.name}>{file.name}</li>
-            ))}
-          </ul>
-        )}
       </ModalBody>
       <ModalFooter>
         <Button variant="ghost" onClick={onClose}>

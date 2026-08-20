@@ -48,6 +48,14 @@ export default function Sidebar({
             iconSize="sm"
             onClick={onCloseDrawer}
           />
+          <IconButton
+            icon={collapsed ? 'chevron-right' : 'chevron-left'}
+            label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="sidebar__collapse"
+            iconSize="sm"
+            onClick={onToggleCollapsed}
+            aria-pressed={collapsed}
+          />
         </div>
 
         <SidebarNav collapsed={collapsed} />
@@ -62,14 +70,6 @@ export default function Sidebar({
             <Icon name="swatch" size="sm" />
             <span className="sidebar__sindura-label">Style guide</span>
           </Link>
-          <IconButton
-            icon="panel-left"
-            label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="sidebar__collapse"
-            iconSize="sm"
-            onClick={onToggleCollapsed}
-            aria-pressed={collapsed}
-          />
         </div>
       </aside>
     </>

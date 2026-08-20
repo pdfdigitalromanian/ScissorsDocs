@@ -27,6 +27,11 @@ export interface EditorPage {
 export interface PdfTextEdit {
   /** Zero-based page index. */
   pageIndex: number
+  /** Original text baseline position in PDF points — used to locate and
+   * remove the pre-edit run in the content stream. Differs from `x`/`y`
+   * after the run has been moved. */
+  originalX: number
+  originalY: number
   /** Text baseline position in PDF points. */
   x: number
   y: number
@@ -57,6 +62,37 @@ export interface PdfTextEdit {
     height: number
   }
   text: string
+}
+
+/**
+ * Describes a selected text run's bounding box in CSS-pixel coordinates
+ * relative to the page container. Used by the selection overlay for the
+ * bounding box, resize handles, and rotation handle.
+ */
+export interface TextRunBounds {
+  left: number
+  top: number
+  width: number
+  height: number
+  rotation: number
+}
+
+/** Describes a selected text run for the inspector and transform operations. */
+export interface SelectedTextRun {
+  /** Zero-based text item index within the page's text content. */
+  index: number
+  /** The DOM element for this text run. */
+  element: HTMLElement
+  /** Bounding box in CSS-pixel coordinates relative to the page container. */
+  bounds: TextRunBounds
+  /** PDF-point coordinates from the original text item transform. */
+  pdfX: number
+  pdfY: number
+  pdfWidth: number
+  pdfHeight: number
+  pdfRotation: number
+  originalText: string
+  pdfFontName: string
 }
 
 /** Input describing a range of pages to extract or split (1-based, inclusive). */

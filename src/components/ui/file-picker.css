@@ -1,0 +1,131 @@
+/**
+ * FilePicker — styled drag & drop file selection for the editor dialogs.
+ * Hides the native file input behind a drop zone and a browse link, then
+ * lists the chosen files so the user can remove any of them.
+ */
+
+.file-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  border: var(--border-thin);
+  border-style: dashed;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-secondary);
+  transition:
+    border-color var(--transition-fast) var(--ease-standard),
+    background-color var(--transition-fast) var(--ease-standard);
+}
+
+.file-picker--dragging {
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.file-picker__visual {
+  display: grid;
+  place-items: center;
+  width: var(--space-11);
+  height: var(--space-11);
+  border-radius: 50%;
+  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.file-picker__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.file-picker__title {
+  margin: 0;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line-height);
+  font-weight: var(--text-body-weight);
+  color: var(--color-text);
+}
+
+.file-picker__subtitle {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-muted);
+}
+
+.file-picker__browse {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.file-picker__browse:hover {
+  color: var(--color-primary-hover);
+}
+
+.file-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-picker__file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.file-picker__filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+}
+
+.file-picker__remove {
+  display: grid;
+  place-items: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.file-picker__remove:hover {
+  background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger, #dc2626);
+}
+
+.file-picker__hint {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line-height);
+  color: var(--color-text-muted);
+}

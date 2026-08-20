@@ -16,6 +16,8 @@ export interface HomeQuickAction {
   icon: IconName
   tone: HomeTone
   hint: string
+  /** Navigation target when the action routes to a real tool page. */
+  to?: string
 }
 
 /** Shortcuts shown alongside the upload zone on the home entry area. */
@@ -88,7 +90,8 @@ export const homeQuickActions: HomeQuickAction[] = [
     description: 'Combine several PDFs into one',
     icon: 'merge',
     tone: 'success',
-    hint: 'The merge tool arrives with Quick Tools.',
+    hint: 'Combine several PDFs into one file.',
+    to: '/tools/organize-merge',
   },
   {
     id: 'split-pdf',
@@ -96,7 +99,8 @@ export const homeQuickActions: HomeQuickAction[] = [
     description: 'Separate pages into new documents',
     icon: 'split',
     tone: 'warning',
-    hint: 'The split tool arrives with Quick Tools.',
+    hint: 'Separate pages into new documents.',
+    to: '/tools/organize-split',
   },
   {
     id: 'compress-pdf',
@@ -105,6 +109,34 @@ export const homeQuickActions: HomeQuickAction[] = [
     icon: 'compress',
     tone: 'secondary',
     hint: 'The compress tool arrives with Quick Tools.',
+    to: '/tools/optimize-compress',
+  },
+  {
+    id: 'protect-pdf',
+    label: 'Protect PDF',
+    description: 'Encrypt a PDF with a password',
+    icon: 'lock',
+    tone: 'warning',
+    hint: 'Encrypt a PDF with an open password and restrictions.',
+    to: '/tools/security-protect',
+  },
+  {
+    id: 'sign-pdf',
+    label: 'Sign PDF',
+    description: 'Sign a document quickly',
+    icon: 'sign',
+    tone: 'primary',
+    hint: 'Draw, type, or upload a signature and place it on the document.',
+    to: '/tools/sign-pdf',
+  },
+  {
+    id: 'redact-pdf',
+    label: 'Redact PDF',
+    description: 'Remove sensitive content',
+    icon: 'scissors',
+    tone: 'warning',
+    hint: 'Permanently remove sensitive text and images from a PDF.',
+    to: '/tools/redact-pdf',
   },
   {
     id: 'convert-files',
@@ -113,6 +145,7 @@ export const homeQuickActions: HomeQuickAction[] = [
     icon: 'convert',
     tone: 'info',
     hint: 'Format conversion arrives with Quick Tools.',
+    to: '/tools',
   },
   {
     id: 'ai-assistant',
@@ -148,8 +181,8 @@ export const documentEntryShortcuts: DocumentEntryShortcut[] = [
 export const supportedFileTypes: SupportedFileType[] = [
   { id: 'pdf', extension: 'PDF', label: 'PDF', tone: 'primary' },
   { id: 'docx', extension: 'DOCX', label: 'Word', tone: 'info' },
-  { id: 'xlsx', extension: 'XLSX', label: 'Excel', tone: 'success' },
-  { id: 'pptx', extension: 'PPTX', label: 'PowerPoint', tone: 'warning' },
+  // { id: 'xlsx', extension: 'XLSX', label: 'Excel', tone: 'success' },
+  // { id: 'pptx', extension: 'PPTX', label: 'PowerPoint', tone: 'warning' },
   { id: 'jpg', extension: 'JPG', label: 'Image', tone: 'secondary' },
   { id: 'png', extension: 'PNG', label: 'Image', tone: 'secondary' },
   { id: 'webp', extension: 'WEBP', label: 'Image', tone: 'secondary' },
@@ -163,7 +196,8 @@ export const homeQuickStart: HomeQuickStart[] = [
     description: 'Combine multiple PDFs into one file',
     icon: 'merge',
     tone: 'success',
-    hint: 'The merge tool arrives with Quick Tools.',
+    hint: 'Combine multiple PDFs into one file.',
+    to: '/tools/organize-merge',
   },
   {
     id: 'quick-split',
@@ -171,7 +205,8 @@ export const homeQuickStart: HomeQuickStart[] = [
     description: 'Divide a document into separate files',
     icon: 'split',
     tone: 'warning',
-    hint: 'The split tool arrives with Quick Tools.',
+    hint: 'Divide a document into separate files.',
+    to: '/tools/organize-split',
   },
   {
     id: 'quick-compress',
@@ -180,6 +215,7 @@ export const homeQuickStart: HomeQuickStart[] = [
     icon: 'compress',
     tone: 'info',
     hint: 'The compress tool arrives with Quick Tools.',
+    to: '/tools/optimize-compress',
   },
   {
     id: 'quick-convert',
@@ -188,6 +224,7 @@ export const homeQuickStart: HomeQuickStart[] = [
     icon: 'convert',
     tone: 'primary',
     hint: 'Format conversion arrives with Quick Tools.',
+    to: '/tools',
   },
   {
     id: 'quick-ai-workspace',
@@ -257,10 +294,17 @@ export const homeToolCategories: HomeToolCategory[] = [
         icon: 'annotation',
         tone: 'info',
       },
+      // {
+      //   id: 'edit-signature',
+      //   label: 'Signature',
+      //   description: 'Sign documents digitally',
+      //   icon: 'sign',
+      //   tone: 'secondary',
+      // },
       {
-        id: 'edit-signature',
+        id: 'sign-pdf',
         label: 'Signature',
-        description: 'Sign documents digitally',
+        description: 'Sign documents',
         icon: 'sign',
         tone: 'secondary',
       },
@@ -295,6 +339,20 @@ export const homeToolCategories: HomeToolCategory[] = [
         tone: 'success',
       },
       {
+        id: 'convert-pdf-to-text',
+        label: 'PDF to Text',
+        description: 'Extract text to a .txt file',
+        icon: 'file-text',
+        tone: 'info',
+      },
+      {
+        id: 'convert-text-to-pdf',
+        label: 'Text to PDF',
+        description: 'Turn text into a PDF',
+        icon: 'file-text',
+        tone: 'secondary',
+      },
+      {
         id: 'convert-word-to-pdf',
         label: 'Word to PDF',
         description: 'Convert Word documents',
@@ -308,12 +366,47 @@ export const homeToolCategories: HomeToolCategory[] = [
         icon: 'file',
         tone: 'warning',
       },
+      // {
+      //   id: 'convert-pptx-to-pdf',
+      //   label: 'PowerPoint to PDF',
+      //   description: 'Convert presentations',
+      //   icon: 'file-text',
+      //   tone: 'primary',
+      // },
+      // {
+      //   id: 'convert-pdf-to-pptx',
+      //   label: 'PDF to PowerPoint',
+      //   description: 'Make slides editable',
+      //   icon: 'file',
+      //   tone: 'warning',
+      // },
+      // {
+      //   id: 'convert-xlsx-to-pdf',
+      //   label: 'Excel to PDF',
+      //   description: 'Convert spreadsheets',
+      //   icon: 'form',
+      //   tone: 'success',
+      // },
+      // {
+      //   id: 'convert-pdf-to-xlsx',
+      //   label: 'PDF to Excel',
+      //   description: 'Make tables editable',
+      //   icon: 'form',
+      //   tone: 'info',
+      // },
       {
         id: 'convert-html-to-pdf',
         label: 'HTML to PDF',
         description: 'Save web pages as PDF',
         icon: 'globe',
         tone: 'secondary',
+      },
+      {
+        id: 'web-to-pdf',
+        label: 'Web Page to PDF',
+        description: 'Download any site as PDF',
+        icon: 'globe',
+        tone: 'warning',
       },
     ],
   },
@@ -399,6 +492,22 @@ export const homeToolCategories: HomeToolCategory[] = [
     ],
   },
   {
+    id: 'compare',
+    label: 'Compare',
+    description: 'Spot the difference between two versions of a document.',
+    icon: 'diff',
+    tone: 'primary',
+    tools: [
+      {
+        id: 'compare-pdf',
+        label: 'Compare PDF',
+        description: 'Find changes between two PDFs',
+        icon: 'diff',
+        tone: 'primary',
+      },
+    ],
+  },
+  {
     id: 'security',
     label: 'Security',
     description: 'Protect and control access to your documents.',
@@ -432,6 +541,20 @@ export const homeToolCategories: HomeToolCategory[] = [
         description: 'Certify documents',
         icon: 'sign',
         tone: 'primary',
+      },
+      // {
+      //   id: 'sign-pdf',
+      //   label: 'Sign PDF',
+      //   description: 'Sign with a drawn, typed, or uploaded signature',
+      //   icon: 'sign',
+      //   tone: 'info',
+      // },
+      {
+        id: 'redact-pdf',
+        label: 'Redact PDF',
+        description: 'Remove sensitive content securely',
+        icon: 'scissors',
+        tone: 'warning',
       },
     ],
   },

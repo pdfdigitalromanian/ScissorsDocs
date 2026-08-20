@@ -1,0 +1,49 @@
+/**
+ * Text selection overlay — bounding box, resize handles, rotation handle
+ * for selected existing PDF text runs.
+ */
+
+.text-selection-overlay {
+  position: absolute;
+  z-index: 10;
+}
+
+/* The selection's highlight fill — lives on the bounding box itself so the
+ * highlight is always pixel-identical to the box, instead of a faulty tint
+ * painted over just the text span underneath. */
+.text-selection-overlay__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  pointer-events: none;
+}
+
+.text-selection-overlay__border {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--color-primary);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.text-selection-overlay__rotation-line {
+  width: 1px;
+  height: 16px;
+  margin-inline: auto;
+  background-color: var(--color-primary);
+}
+
+.text-selection-overlay__rotation-handle {
+  width: 12px;
+  height: 12px;
+  margin-inline: auto;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-primary);
+  background-color: var(--color-surface);
+  cursor: grab;
+}
+
+.text-selection-overlay__rotation-handle:active {
+  cursor: grabbing;
+}

@@ -254,6 +254,9 @@ export function ElementOverlay({
     updateElement,
     deleteElements,
     commitElements,
+    signMode,
+    signaturePlaceMode,
+    placeSignature,
   } = usePdfEditor()
   const { settings } = useSettings()
   const surfaceRef = useRef<HTMLDivElement>(null)
@@ -350,6 +353,16 @@ export function ElementOverlay({
 
     const point = localPoint(event)
     const hit = hitTestElements(pageElements, point)
+
+    if (signMode && signaturePlaceMode === 'draw') {
+      /* In Sign mode the active signature is dropped where the user clicks
+         empty page space; clicks on existing placements fall through so the
+         signature stays movable. */
+      if (!hit) {
+        void placeSignature(page, clampToPage(point))
+        return
+      }
+    }
 
     if (tool === 'select') {
       if (!hit) {
@@ -755,7 +768,11 @@ export function ElementOverlay({
   return (
     <div
       ref={surfaceRef}
-      className={`editor-overlay${tool === 'select' ? ' editor-overlay--select' : ''}`}
+      className={`editor-overlay${tool === 'select' ? ' editor-overlay--select' : ''}${
+        signMode && signaturePlaceMode === 'draw'
+          ? ' editor-overlay--sign'
+          : ''
+      }`}
       style={{ width: width * scale, height: height * scale }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -838,7 +855,7 @@ export function ElementOverlay({
             }}
           >
             {!editing && <ElementPreview element={element} scale={scale} />}
-            {selected && !editing && (
+            {selected && !editing ? (
               <>
                 <div className="editor-element__frame" aria-hidden="true" />
                 {RESIZE_HANDLES.map((handle) => (
@@ -858,7 +875,7 @@ export function ElementOverlay({
                   onPointerDown={(event) => startRotate(event, element)}
                 />
               </>
-            )}
+            ) : null}
           </div>
         )
       })}

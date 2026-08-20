@@ -182,7 +182,9 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 export function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] ?? '' : dataUrl
+  const base64 = (
+    dataUrl.includes(',') ? dataUrl.split(',')[1] ?? '' : dataUrl
+  ).replace(/\s+/g, '')
   const binary = atob(base64)
   const bytes = new Uint8Array(binary.length)
   for (let index = 0; index < binary.length; index += 1) {
@@ -300,6 +302,39 @@ function projectElementForPage(
   }
 }
 
+/**
+ * Caches, per font, which characters it can encode. Standard PDF fonts use
+ * WinAnsi, whose glyph set excludes emoji and most non-Latin characters;
+ * asking pdf-lib to measure/encode one of those throws, which previously
+ * crashed the whole element commit. Characters the font can't represent are
+ * replaced with a space so the surrounding text still renders and lays out.
+ */
+const fontEncodableCache = new WeakMap<PDFFont, Map<string, boolean>>()
+
+function isFontEncodable(font: PDFFont, char: string): boolean {
+  let cache = fontEncodableCache.get(font)
+  if (!cache) {
+    cache = new Map()
+    fontEncodableCache.set(font, cache)
+  }
+  const cached = cache.get(char)
+  if (cached !== undefined) return cached
+  let encodable = true
+  try {
+    font.encodeText(char)
+  } catch {
+    encodable = false
+  }
+  cache.set(char, encodable)
+  return encodable
+}
+
+function sanitizeForFont(content: string, font: PDFFont): string {
+  return Array.from(content)
+    .map((char) => (isFontEncodable(font, char) ? char : ' '))
+    .join('')
+}
+
 function wrapLines(
   content: string,
   font: PDFFont,
@@ -339,7 +374,8 @@ function drawTextElement(
   const boxTop = pageHeight - element.y
   const maxWidth = Math.max(1, element.width)
   const lineHeight = fontSize * (element.lineHeight ?? 1.25)
-  const lines = wrapLines(element.content, font, fontSize, maxWidth)
+  const content = sanitizeForFont(element.content, font)
+  const lines = wrapLines(content, font, fontSize, maxWidth)
 
   const centerX = element.x + element.width / 2
   const centerY = pageHeight - (element.y + element.height / 2)

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '@/components/icons/Icon'
-import { useToast } from '@/components/ui'
 import Brand from '@/features/shell/components/Brand'
 import { useTheme } from '@/hooks/useTheme'
 import { homeToolCategories } from '../data/home-catalog'
@@ -10,7 +9,6 @@ export default function EntryHeader() {
   const [toolsOpen, setToolsOpen] = useState(false)
   const toolsMenuRef = useRef<HTMLElement>(null)
   const toolsButtonRef = useRef<HTMLButtonElement>(null)
-  const { toast } = useToast()
   const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
@@ -39,14 +37,6 @@ export default function EntryHeader() {
     }
   }, [toolsOpen])
 
-  function handleContactClick() {
-    toast({
-      title: 'Contact ScissorsDoc',
-      description: 'Contact options will be connected in the next phase.',
-      variant: 'info',
-    })
-  }
-
   return (
     <header className="entry-header">
       <div className="entry-header__inner">
@@ -69,13 +59,12 @@ export default function EntryHeader() {
               aria-hidden="true"
             />
           </button>
-          <button
-            type="button"
+          <Link
+            to="/contact"
             className="entry-header__nav-button entry-header__contact"
-            onClick={handleContactClick}
           >
             Contact us
-          </button>
+          </Link>
         </nav>
 
         <div className="entry-header__actions">

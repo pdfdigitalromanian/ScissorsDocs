@@ -173,6 +173,7 @@
   gap: var(--space-2);
   flex-shrink: 0;
   min-width: 0;
+  position: relative;
   padding: var(--space-2) var(--space-3);
   background-color: var(--color-surface);
   border-bottom: var(--border-divider);
@@ -201,6 +202,124 @@
   line-height: var(--text-caption-line-height);
   letter-spacing: var(--text-caption-letter-spacing);
   color: var(--color-text-muted);
+}
+
+.editor-toolbar__popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: var(--space-2);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised, var(--color-surface));
+  box-shadow: var(--shadow-md, 0 4px 14px rgb(0 0 0 / 0.12));
+  min-width: 16rem;
+}
+
+.editor-toolbar__popover-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--text-caption-size);
+}
+
+.editor-toolbar__popover-hint {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  color: var(--color-text-muted);
+}
+
+.editor-toolbar__stamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.editor-toolbar__stamps button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-primary, #b91c1c);
+}
+
+.editor-toolbar__stamps button:hover {
+  background-color: var(--color-primary-100, #eef2ff);
+}
+
+/* Sign toolbar — the Sign workflow rendered like Edit content. The palette
+   shows every created signature so one can be picked and dropped onto the
+   page (single or multiple placements). */
+
+.sign-toolbar__palette {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-thin);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised, var(--color-surface));
+}
+
+.sign-toolbar__chip {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 30px;
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.sign-toolbar__chip:hover {
+  border-color: var(--color-primary-100);
+}
+
+.sign-toolbar__chip--active {
+  border-color: var(--color-primary);
+}
+
+.sign-toolbar__chip img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.sign-toolbar__chip-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-inline: var(--space-1);
+}
+
+.sign-toolbar__asset-label {
+  font-size: var(--text-caption-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.sign-toolbar__asset-mode {
+  font-size: var(--text-caption-size);
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.sign-studio {
+  max-width: 100%;
 }
 
 /* ------------------------------------------------------------------ *
@@ -407,6 +526,13 @@
   cursor: default;
 }
 
+/* Sign placement mode: keep a normal cursor over the page — the crosshair
+ * is only needed while actually drawing, and signatures are dropped with a
+ * click, not a drag. */
+.editor-overlay--sign {
+  cursor: default;
+}
+
 .editor-overlay__file-input {
   position: absolute;
   width: 1px;
@@ -442,8 +568,8 @@
 
 .editor-element__handle {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border: 2px solid #ffffff;
   border-radius: var(--radius-xs);
   background-color: #ffffff;
@@ -452,53 +578,53 @@
 }
 
 .editor-element__handle--nw {
-  top: -5px;
-  inset-inline-start: -5px;
+  top: -4px;
+  inset-inline-start: -4px;
   cursor: nwse-resize;
 }
 
 .editor-element__handle--n {
-  top: -5px;
+  top: -4px;
   left: 50%;
   transform: translateX(-50%);
   cursor: ns-resize;
 }
 
 .editor-element__handle--ne {
-  top: -5px;
-  inset-inline-end: -5px;
+  top: -4px;
+  inset-inline-end: -4px;
   cursor: nesw-resize;
 }
 
 .editor-element__handle--e {
   top: 50%;
-  inset-inline-end: -5px;
+  inset-inline-end: -4px;
   transform: translateY(-50%);
   cursor: ew-resize;
 }
 
 .editor-element__handle--se {
-  bottom: -5px;
-  inset-inline-end: -5px;
+  bottom: -4px;
+  inset-inline-end: -4px;
   cursor: nwse-resize;
 }
 
 .editor-element__handle--s {
-  bottom: -5px;
+  bottom: -4px;
   left: 50%;
   transform: translateX(-50%);
   cursor: ns-resize;
 }
 
 .editor-element__handle--sw {
-  bottom: -5px;
-  inset-inline-start: -5px;
+  bottom: -4px;
+  inset-inline-start: -4px;
   cursor: nesw-resize;
 }
 
 .editor-element__handle--w {
   top: 50%;
-  inset-inline-start: -5px;
+  inset-inline-start: -4px;
   transform: translateY(-50%);
   cursor: ew-resize;
 }

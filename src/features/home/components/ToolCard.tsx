@@ -7,9 +7,39 @@ interface ToolCardProps {
   tool: HomeTool
 }
 
+const IMPLEMENTED_TOOLS = new Set([
+  'edit-text',
+  'edit-shapes',
+  'edit-images',
+  'convert-images-to-pdf',
+  'convert-pdf-to-images',
+  'convert-pdf-to-text',
+  'convert-text-to-pdf',
+  'convert-html-to-pdf',
+  'convert-word-to-pdf',
+  'convert-pdf-to-word',
+  'convert-pptx-to-pdf',
+  'convert-pdf-to-pptx',
+  'convert-xlsx-to-pdf',
+  'convert-pdf-to-xlsx',
+  'web-to-pdf',
+  'organize-merge',
+  'organize-split',
+  'organize-rotate',
+  'organize-extract',
+  'organize-delete',
+  'organize-rearrange',
+  'optimize-compress',
+  'optimize-ocr',
+  'compare-pdf',
+  'security-protect',
+  'security-unlock',
+  'security-watermark',
+])
+
 /**
- * ToolCard routes implemented tools into their workspace and keeps the
- * remaining catalogue entries honest about their availability.
+ * ToolCard routes implemented tools into their workspace/tool page and keeps
+ * the remaining catalogue entries honest about their availability.
  */
 export default function ToolCard({ tool }: ToolCardProps) {
   const navigate = useNavigate()
@@ -18,6 +48,10 @@ export default function ToolCard({ tool }: ToolCardProps) {
   function handleActivate() {
     if (tool.id === 'edit-text') {
       navigate('/workspace?tool=edit-text')
+      return
+    }
+    if (IMPLEMENTED_TOOLS.has(tool.id)) {
+      navigate(`/tools/${tool.id}`)
       return
     }
     toast({

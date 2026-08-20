@@ -22,6 +22,8 @@ import {
 } from './element-pdf'
 import {
   createElementId,
+  createSignatureElement,
+  nextZIndex,
   duplicateElementsForPages,
   remapElementsAfterDelete,
   remapElementsAfterInsert,
@@ -29,7 +31,8 @@ import {
   remapElementsAfterReorder,
   remapElementsAfterReplace,
 } from './elements'
-import type { EditorTool, PdfElement } from './elements'
+import type { EditorTool, PdfElement, Point } from './elements'
+import type { SignatureImage } from '@/features/tools/sign/signature-lib'
 import type {
   EditorPage,
   EditorSaveState,
@@ -70,6 +73,24 @@ interface PdfEditorContextValue {
   editMode: boolean
   tool: EditorTool
   selectedElementIds: string[]
+  /** Sign workflow state — signing works like Edit content, with its own
+   * toolbar and inspector while `signMode` is on. */
+  signMode: boolean
+  /** Signatures created in this session (draw/type/upload assets). */
+  signatures: SignatureImage[]
+  /** The signature that will be placed when clicking the page. */
+  activeSignatureId: string | null
+  /** `draw` places the active signature on click; `select` only edits. */
+  signaturePlaceMode: 'draw' | 'select'
+  setSignMode: (enabled: boolean) => void
+  setSignaturePlaceMode: (mode: 'draw' | 'select') => void
+  setActiveSignatureId: (id: string | null) => void
+  /** Registers a freshly created signature and makes it the active one. */
+  createSignature: (signature: SignatureImage) => void
+  /** Removes a signature asset and every placement that uses it. */
+  deleteSignature: (id: string) => Promise<void>
+  /** Places the active signature centered at a page point. */
+  placeSignature: (page: number, point: Point) => Promise<void>
   setEditMode: (enabled: boolean) => void
   setTool: (tool: EditorTool) => void
   selectElement: (id: string) => void
@@ -98,6 +119,7 @@ interface PdfEditorContextValue {
   clearSelection: () => void
   rotateSelected: (direction: RotationDirection) => Promise<void>
   replaceText: (edit: PdfTextEdit) => Promise<void>
+  deleteText: (edit: PdfTextEdit) => Promise<void>
   deleteSelected: () => Promise<void>
   duplicateSelected: () => Promise<void>
   moveSelected: (toIndex: number) => Promise<void>
@@ -162,6 +184,12 @@ export function PdfEditorProvider({
   const [editMode, setEditModeState] = useState(false)
   const [tool, setToolState] = useState<EditorTool>('select')
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([])
+  const [signMode, setSignModeState] = useState(false)
+  const [signatures, setSignatures] = useState<SignatureImage[]>([])
+  const [activeSignatureId, setActiveSignatureId] = useState<string | null>(null)
+  const [signaturePlaceMode, setSignaturePlaceMode] = useState<'draw' | 'select'>(
+    'draw',
+  )
   /**
    * Increments only on structural changes (page insert/delete/reorder/
    * rotate, undo/redo) — never on element edits. The viewer uses it to
@@ -206,6 +234,10 @@ export function PdfEditorProvider({
     setSelectedElementIds([])
     setEditModeState(false)
     setToolState('select')
+    setSignModeState(false)
+    setSignatures([])
+    setActiveSignatureId(null)
+    setSignaturePlaceMode('draw')
     setSaveState('saved')
     setBusy(false)
     setError(null)
@@ -398,6 +430,24 @@ export function PdfEditorProvider({
     }
   }, [])
 
+  /* Signing shares the edit overlay but keeps its own mode so the sign
+   * toolbar and inspector can live alongside the regular edit tools. */
+  const setSignMode = useCallback((enabled: boolean) => {
+    setSignModeState(enabled)
+    if (enabled) {
+      setEditModeState(false)
+      setToolState('select')
+      setSelectedElementIds([])
+    } else {
+      setSignaturePlaceMode('draw')
+    }
+  }, [])
+
+  const createSignature = useCallback((signature: SignatureImage) => {
+    setSignatures((previous) => [...previous, signature])
+    setActiveSignatureId(signature.id)
+  }, [])
+
   const selectElement = useCallback((id: string) => {
     setSelectedElementIds([id])
   }, [])
@@ -482,6 +532,63 @@ export function PdfEditorProvider({
     (element: PdfElement, coalesce = false) =>
       commitElements((elements) => [...elements, element], coalesce),
     [commitElements],
+  )
+
+  /* Sign asset lifecycle — deleteSignature also removes every placement
+   * that uses the asset, and placeSignature drops the active signature
+   * centered at a page point. */
+  const deleteSignature = useCallback(
+    async (id: string) => {
+      setSignatures((previous) =>
+        previous.filter((signature) => signature.id !== id),
+      )
+      setActiveSignatureId((previous) => (previous === id ? null : previous))
+      await commitElements((elements) =>
+        elements.filter(
+          (element) =>
+            !(
+              element.type === 'image' &&
+              element.kind === 'signature' &&
+              element.signatureId === id
+            ),
+        ),
+      )
+    },
+    [commitElements],
+  )
+
+  const placeSignature = useCallback(
+    async (page: number, point: Point) => {
+      if (!activeSignatureId) return
+      const signature = signatures.find(
+        (entry) => entry.id === activeSignatureId,
+      )
+      if (!signature) return
+      const pageInfo = pages[page]
+      const maxWidth = pageInfo ? Math.min(180, pageInfo.width * 0.6) : 180
+      const maxHeight = pageInfo ? pageInfo.height * 0.35 : 100
+      const ratio = signature.width / Math.max(1, signature.height)
+      let width = maxWidth
+      let height = width / ratio
+      if (height > maxHeight) {
+        height = maxHeight
+        width = height * ratio
+      }
+      const element = createSignatureElement(
+        page,
+        point.x - width / 2,
+        point.y - height / 2,
+        width,
+        height,
+        nextZIndex(elementsRef.current),
+        signature.dataUrl,
+        signature.label,
+        signature.id,
+      )
+      await addElement(element)
+      setSelectedElementIds([element.id])
+    },
+    [activeSignatureId, signatures, pages, addElement],
   )
 
   const updateElement = useCallback(
@@ -784,6 +891,17 @@ export function PdfEditorProvider({
     [applyContentOnlyMutation],
   )
 
+  const deleteText = useCallback(
+    async (edit: PdfTextEdit) => {
+      await applyContentOnlyMutation((doc) => {
+        const page = doc.getPage(edit.pageIndex)
+        if (!page) return
+        return engine.deleteTextRun(doc, page, edit)
+      })
+    },
+    [applyContentOnlyMutation],
+  )
+
   const deleteSelected = useCallback(async () => {
     const indices = selectedIndices()
     if (indices.length === 0) return
@@ -1072,6 +1190,16 @@ export function PdfEditorProvider({
       editMode,
       tool,
       selectedElementIds,
+      signMode,
+      signatures,
+      activeSignatureId,
+      signaturePlaceMode,
+      setSignMode,
+      setSignaturePlaceMode,
+      setActiveSignatureId,
+      createSignature,
+      deleteSignature,
+      placeSignature,
       setEditMode,
       setTool: setToolState,
       selectElement,
@@ -1090,6 +1218,7 @@ export function PdfEditorProvider({
       clearSelection,
       rotateSelected,
       replaceText,
+      deleteText,
       deleteSelected,
       duplicateSelected,
       moveSelected,
@@ -1123,6 +1252,16 @@ export function PdfEditorProvider({
       editMode,
       tool,
       selectedElementIds,
+      signMode,
+      signatures,
+      activeSignatureId,
+      signaturePlaceMode,
+      setSignMode,
+      setSignaturePlaceMode,
+      setActiveSignatureId,
+      createSignature,
+      deleteSignature,
+      placeSignature,
       setEditMode,
       setToolState,
       selectElement,
@@ -1141,6 +1280,7 @@ export function PdfEditorProvider({
       clearSelection,
       rotateSelected,
       replaceText,
+      deleteText,
       deleteSelected,
       duplicateSelected,
       moveSelected,
